@@ -4,7 +4,7 @@
 """
 from lox import Chunk, OpCode
 from rpython.rlib import rfile
-
+import os
 
 def debug(msg):
     print "debug:", msg
@@ -21,23 +21,25 @@ def repl(stream):
 def runFile(filename):
     debug("runFile called with: " + filename)
 
-    file = rfile.create_file(filename, 'r')
+    try:
+        file = rfile.create_file(filename, 'r')
+    except IOError:
+        debug("Error opening file")
+        raise SystemExit(74)
     source = file.read()
     debug(source)
-
-    # filepoint = os.open(filename, os.O_RDWR, 0777)
-    # while True:
-    #     payload = os.read(filepoint, 1024)
-    #     if len(payload) == 0:
-    #         break
-    #     debug(payload)
-    # os.close(filepoint)
+    # InterpretResult result = interpret(source);
 
 
 def example():
     chunk = Chunk()
-    chunk.write_chunk(OpCode.OP_RETURN)
-    chunk.write_chunk(OpCode.OP_RETURN)
+    constant1 = chunk.add_constant(1.3)
+    constant2 = chunk.add_constant(3.1415)
+    chunk.write_chunk(OpCode.OP_CONSTANT, 1)
+    chunk.write_chunk(constant1, 1)
+    chunk.write_chunk(OpCode.OP_CONSTANT, 2)
+    chunk.write_chunk(constant2, 2)
+    chunk.write_chunk(OpCode.OP_RETURN, 2)
     print chunk
 
     chunk.disassemble("test chunk")
@@ -49,12 +51,13 @@ def entry_point(argv):
     if len(argv) > 1:
         runFile(argv[1])
     elif len(argv) == 1:
+        pass
         # repl mode baby!
         #repl(stdin)
         example()
     else:
         print "Usage: bt [path]"
-
+        raise SystemExit(64)
     return 0
 
 # _____ Define and setup target ___
@@ -67,3 +70,7 @@ if __name__ == '__main__':
     import sys
     if len(sys.argv) >= 2:
         runFile(filename = sys.argv[1])
+    else:
+        debug("This will be a repl... eventually")
+        #repl()
+        example()
