@@ -2,6 +2,38 @@ from lox.debug import disassemble_instruction
 from lox.value import Value, ValueArray
 
 
+class Linesman(object):
+    """
+    A run-length encoding object tracking the source code
+    line numbers for all chunk's instructions.
+
+    1, 1, 1, 2, 2, 3
+    -> 1*3,2*2,3*1
+    -> linesman[2] = 1
+
+    """
+    def __init__(self):
+        self.rle = []
+
+    def append(self, line):
+        if len(self.rle) == 0 or self.rle[-1][0] != line:
+            self.rle.append([line, 1])
+        else:
+            # incr line count
+            self.rle[-1][1] += 1
+
+    def _index_rle(self, rle, item):
+        rle_count = 0
+        for line_number, repeats in rle:
+            rle_count += repeats
+            if rle_count > item:
+                return line_number
+        return -1
+
+    def __getitem__(self, item):
+        return self._index_rle(self.rle, item)
+
+
 class Chunk:
     code = None
     constants = None
@@ -9,7 +41,7 @@ class Chunk:
 
     def __init__(self):
         self.code = []
-        self.lines = []
+        self.lines = Linesman()
         self.constants = ValueArray()
 
     def write_chunk(self, byte, line):

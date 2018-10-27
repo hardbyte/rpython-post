@@ -40,7 +40,7 @@ def disassemble_instruction(chunk, offset):
 
     # Print the line number
     if offset > 0 and chunk.lines[offset] == chunk.lines[offset - 1]:
-        print "   | ",
+        print "   |",
     else:
         print leftpad_string(str(chunk.lines[offset]), 4),
 
