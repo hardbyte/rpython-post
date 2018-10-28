@@ -14,6 +14,8 @@ class Value(object):
         else:
             return str(self.value)
 
+    def __repr__(self):
+        return "<Value: '%s'>" % self.value
 
 
 class ValueArray(object):

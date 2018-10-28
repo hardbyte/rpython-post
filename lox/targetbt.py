@@ -2,7 +2,8 @@
 
 
 """
-from lox import Chunk, OpCode
+from lox import Chunk, OpCode, VM
+from lox.vm import IntepretResultToName
 from rpython.rlib import rfile
 import os
 
@@ -32,21 +33,33 @@ def runFile(filename):
 
 
 def example():
+    vm = VM()
+
     chunk = Chunk()
-    constant1 = chunk.add_constant(1.3)
+    constant1 = chunk.add_constant(100)
     constant2 = chunk.add_constant(3.1415)
+    constant3 = chunk.add_constant(2)
+
     chunk.write_chunk(OpCode.OP_CONSTANT, 1)
     chunk.write_chunk(constant1, 1)
+    chunk.write_chunk(OpCode.OP_NEGATE, 1)
     chunk.write_chunk(OpCode.OP_CONSTANT, 1)
     chunk.write_chunk(constant2, 1)
-    chunk.write_chunk(OpCode.OP_CONSTANT, 1)
-    chunk.write_chunk(constant1, 1)
+    chunk.write_chunk(OpCode.OP_DIVIDE, 2)
     chunk.write_chunk(OpCode.OP_CONSTANT, 2)
-    chunk.write_chunk(constant2, 2)
-    chunk.write_chunk(OpCode.OP_RETURN, 2)
+    chunk.write_chunk(constant3, 2)
+    chunk.write_chunk(OpCode.OP_SUBTRACT, 2)
+    chunk.write_chunk(OpCode.OP_CONSTANT, 2)
+    chunk.write_chunk(constant3, 2)
+    chunk.write_chunk(OpCode.OP_MULTIPLY, 2)
+    chunk.write_chunk(OpCode.OP_RETURN, 3)
     print chunk
 
     chunk.disassemble("test chunk")
+
+    print "== Executing in vm =="
+    interpreter_result = vm.interpret(chunk)
+    print IntepretResultToName[interpreter_result]
 
 
 def entry_point(argv):

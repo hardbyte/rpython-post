@@ -1,5 +1,6 @@
 from lox.chunk import Chunk
 from lox.opcodes import OpCode
+from lox.vm import VM
 
 
 if __name__ == "__main__":

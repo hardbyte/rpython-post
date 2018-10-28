@@ -6,11 +6,6 @@ class Linesman(object):
     """
     A run-length encoding object tracking the source code
     line numbers for all chunk's instructions.
-
-    1, 1, 1, 2, 2, 3
-    -> 1*3,2*2,3*1
-    -> linesman[2] = 1
-
     """
     def __init__(self):
         self.rle = []

@@ -23,6 +23,14 @@ def simple_instruction(name, offset):
     return offset + 1
 
 
+def binary_instruction(name, chunk, offset):
+
+    op_name = OpCode.BinaryOps[chunk.code[offset]]
+
+    print op_name
+    return offset + 1
+
+
 def constant_instruction(name, chunk, offset):
     constant = chunk.code[offset + 1]
     print "(%s)" % leftpad_string("%d" % constant, 2, '0'),
@@ -52,6 +60,8 @@ def disassemble_instruction(chunk, offset):
     # Now the opcode specific output
     if instruction == OpCode.OP_CONSTANT:
         return constant_instruction(instruction_name, chunk, offset)
+    if instruction in OpCode.BinaryOps:
+        return binary_instruction(instruction_name, chunk, offset)
 
     return simple_instruction(instruction_name, offset)
 
