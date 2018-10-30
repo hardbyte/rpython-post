@@ -3,7 +3,8 @@
 
 """
 from lox import Chunk, OpCode, VM
-from lox.vm import IntepretResultToName
+from lox.errors import LoxCompileError, LoxRuntimeError
+from lox.vm import IntepretResultToName, IntepretResultCode
 from rpython.rlib import rfile
 import os
 
@@ -12,24 +13,41 @@ def debug(msg):
 
 
 def repl(stream):
+    vm = VM()
     while True:
         next_line = stream.readline()
         if not next_line:
             break
         print "^" + next_line
 
+        vm.interpret(next_line)
+
+
 
 def runFile(filename):
     debug("runFile called with: " + filename)
 
+    source = read_file(filename)
+    vm = VM()
+    try:
+        result = vm.interpret(source)
+        if result == IntepretResultCode.INTERPRET_COMPILE_ERROR:
+            print "Compile error"
+        elif result == IntepretResultCode.INTERPRET_RUNTIME_ERROR:
+            print "Runtime error"
+    except ValueError as e:
+        print "Unhandled exception in runFile"
+
+
+
+def read_file(filename):
     try:
         file = rfile.create_file(filename, 'r')
     except IOError:
         debug("Error opening file")
         raise SystemExit(74)
     source = file.read()
-    debug(source)
-    # InterpretResult result = interpret(source);
+    return source
 
 
 def example():
@@ -89,5 +107,5 @@ if __name__ == '__main__':
         runFile(filename = sys.argv[1])
     else:
         debug("This will be a repl... eventually")
-        #repl()
-        example()
+        repl(sys.stdin)
+        #example()

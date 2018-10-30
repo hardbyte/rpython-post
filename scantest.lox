@@ -1,0 +1,8 @@
+print "hello";
+print 1.0 + 202;
+fun blah {
+    // comment
+    if(a > 2) {
+        return "hi";
+    }
+}

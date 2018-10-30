@@ -1,5 +1,6 @@
 
-from lox import OpCode
+from lox import OpCode, compile
+
 from lox.debug import disassemble_instruction
 
 
@@ -12,8 +13,9 @@ class IntepretResultCode:
     INTERPRET_COMPILE_ERROR = 1
     INTERPRET_RUNTIME_ERROR = 2
 
+
 IntepretResultToName = {getattr(IntepretResultCode, op): op
-                           for op in dir(IntepretResultCode) if op.startswith('INTERPRET_')}
+                        for op in dir(IntepretResultCode) if op.startswith('INTERPRET_')}
 
 
 class VM(object):
@@ -98,8 +100,11 @@ class VM(object):
     def _stack_divide(op1, op2):
         return op1 / op2
 
+    def interpret(self, source):
+        compile(source)
+        return IntepretResultCode.INTERPRET_OK
 
-    def interpret(self, chunk):
+    def interpret_chunk(self, chunk):
         """
         http://www.craftinginterpreters.com/a-virtual-machine.html#executing-instructions
 
