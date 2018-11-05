@@ -1,5 +1,6 @@
 
 from lox import OpCode, compile
+from lox.compiler import Compiler
 
 from lox.debug import disassemble_instruction
 
@@ -32,6 +33,7 @@ class VM(object):
     def __init__(self, debug=True):
         self.debug_trace = debug
         self._reset_stack()
+
 
     def _reset_stack(self):
         self.stack = [0] * self.STACK_MAX_SIZE
@@ -101,16 +103,13 @@ class VM(object):
         return op1 / op2
 
     def interpret(self, source):
-        compile(source)
-        return IntepretResultCode.INTERPRET_OK
+        # TODO check throws compile error
+        compiler = Compiler(source)
+        self.chunk = compiler.compile()
+        result = self._run()
+        return result
 
     def interpret_chunk(self, chunk):
-        """
-        http://www.craftinginterpreters.com/a-virtual-machine.html#executing-instructions
-
-        :param chunk:
-        :return:
-        """
         self.chunk = chunk
         self.ip = 0
         return self._run()

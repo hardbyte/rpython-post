@@ -109,7 +109,7 @@ class Scanner(object):
         if self._is_at_end():
             return self._make_token(TokenTypes.EOF)
 
-        char = self._advance()
+        char = self.advance()
 
         if char.isalpha():
             return self._make_identifier()
@@ -177,7 +177,7 @@ class Scanner(object):
         else:
             return self.source[token.start:(token.start+token.length)]
 
-    def _advance(self):
+    def advance(self):
         self.current += 1
         return self.source[self.current - 1]
 
@@ -194,14 +194,14 @@ class Scanner(object):
             char = self._peek()
 
             if char in ' \r\t':
-                self._advance()
+                self.advance()
             elif char == '\n':
                 self.line += 1
-                self._advance()
+                self.advance()
             elif char == '/':
                 if self._peek_next() == '/':
                     while self._peek() != '\n' and not self._is_at_end():
-                        self._advance()
+                        self.advance()
             else:
                 return
 
@@ -221,30 +221,30 @@ class Scanner(object):
         while self._peek() != '"' and not self._is_at_end():
             if self._peek() == '\n':
                 self.line += 1
-            self._advance()
+            self.advance()
 
         if self._is_at_end():
             return self._error_token("Unterminated string.")
 
         # claim the closing "
-        self._advance()
+        self.advance()
         return self._make_token(TokenTypes.STRING)
 
     def _number(self):
         while self._peek().isdigit():
-            self._advance()
+            self.advance()
 
         # Look for decimal point
         if self._peek() == '.' and self._peek_next().isdigit():
-            self._advance()
+            self.advance()
             while self._peek().isdigit():
-                self._advance()
+                self.advance()
 
         return self._make_token(TokenTypes.NUMBER)
 
     def _make_identifier(self):
         while self._peek().isalpha() or self._peek().isdigit():
-            self._advance()
+            self.advance()
         return self._make_token(self._identifier())
 
     def _identifier(self):
