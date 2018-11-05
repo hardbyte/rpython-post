@@ -32,7 +32,6 @@ class VM(object):
         self.debug_trace = debug
         self._reset_stack()
 
-
     def _reset_stack(self):
         self.stack = [0] * self.STACK_MAX_SIZE
         self.stack_top = 0
@@ -79,7 +78,6 @@ class VM(object):
         if self.stack_top <= 0:
             print "[]",
         else:
-
             for i in range(self.stack_top):
                 print "[ %s ]" % self.stack[i],
         print
@@ -101,14 +99,14 @@ class VM(object):
         return op1 / op2
 
     def interpret(self, source):
-        # TODO check throws compile error
+        self._reset_stack()
         compiler = Compiler(source)
         if compiler.compile():
-            self.chunk = compiler.chunk
-            result = self._run()
-            return result
+            return self.interpret_chunk(compiler.chunk)
 
     def interpret_chunk(self, chunk):
+        if self.debug_trace:
+            print "== VM TRACE =="
         self.chunk = chunk
         self.ip = 0
         return self._run()
