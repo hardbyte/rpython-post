@@ -202,6 +202,8 @@ class Scanner(object):
                 if self._peek_next() == '/':
                     while self._peek() != '\n' and not self._is_at_end():
                         self.advance()
+                else:
+                    break
             else:
                 return
 
