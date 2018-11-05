@@ -17,6 +17,9 @@ class Value(object):
     def __repr__(self):
         return "<Value: '%s'>" % self.value
 
+    def __eq__(self, other):
+        return self.value == other.value
+
 
 class ValueArray(object):
     def __init__(self):

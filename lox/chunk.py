@@ -56,5 +56,9 @@ class Chunk:
         if not isinstance(value, Value):
             value = Value(value)
 
+        # See if we already know this constant
+        try:
+            return self.constants.values.index(value)
+        except ValueError:
+            return self.constants.append(value)
 
-        return self.constants.append(value)
