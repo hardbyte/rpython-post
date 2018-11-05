@@ -126,7 +126,7 @@ class Compiler(object):
         elif token.type == TokenTypes.ERROR:
             pass
         else:
-            print " at %s" % self.scanner.source[token.start:token.start+token.length]
+            print " at %s" % self.scanner.get_token_string(token)
         print ": %s\n" % msg
 
         self.parser.had_error = True
