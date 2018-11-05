@@ -29,7 +29,7 @@ def runFile(filename):
     debug("runFile called with: " + filename)
 
     source = read_file(filename)
-    vm = VM()
+    vm = VM(debug=False)
     try:
         result = vm.interpret(source)
         if result == IntepretResultCode.INTERPRET_COMPILE_ERROR:

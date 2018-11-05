@@ -59,7 +59,6 @@ class VM(object):
             elif instruction == OpCode.OP_CONSTANT:
                 constant = self._read_constant()
                 self._stack_push(constant.value)
-                self.print_value(constant)
             elif instruction == OpCode.OP_NEGATE:
                 operand = self._stack_pop()
                 operand *= -1
@@ -100,7 +99,7 @@ class VM(object):
 
     def interpret(self, source):
         self._reset_stack()
-        compiler = Compiler(source)
+        compiler = Compiler(source, debugging=self.debug_trace)
         if compiler.compile():
             return self.interpret_chunk(compiler.current_chunk())
         else:
