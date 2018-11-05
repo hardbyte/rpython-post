@@ -42,53 +42,6 @@ class ParseRule(object):
             raise KeyError
 
 
-# The table that drives our whole parser. Entries per token of:
-# [ prefix, infix, precedence]
-rules = [
-    ParseRule('grouping',    None,       Precedence.CALL),        # TOKEN_LEFT_PAREN
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_RIGHT_PAREN
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_LEFT_BRACE
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_RIGHT_BRACE
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_COMMA
-    ParseRule(None,          None,       Precedence.CALL),        # TOKEN_DOT
-    ParseRule('unary',       'binary',   Precedence.TERM),        # TOKEN_MINUS
-    ParseRule(None,          'binary',   Precedence.TERM),        # TOKEN_PLUS
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_SEMICOLON
-    ParseRule(None,          'binary',   Precedence.FACTOR),      # TOKEN_SLASH
-    ParseRule(None,          'binary',   Precedence.FACTOR),      # TOKEN_STAR
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_BANG
-    ParseRule(None,          None,       Precedence.EQUALITY),    # TOKEN_BANG_EQUAL
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_EQUAL
-    ParseRule(None,          None,       Precedence.EQUALITY),    # TOKEN_EQUAL_EQUAL
-    ParseRule(None,          None,       Precedence.COMPARISON),  # TOKEN_GREATER
-    ParseRule(None,          None,       Precedence.COMPARISON),  # TOKEN_GREATER_EQUAL
-    ParseRule(None,          None,       Precedence.COMPARISON),  # TOKEN_LESS
-    ParseRule(None,          None,       Precedence.COMPARISON),  # TOKEN_LESS_EQUAL
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_IDENTIFIER
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_STRING
-    ParseRule('number',      None,       Precedence.NONE),        # TOKEN_NUMBER
-    ParseRule(None,          None,       Precedence.AND),         # TOKEN_AND
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_CLASS
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_ELSE
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_FALSE
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_FUN
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_FOR
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_IF
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_NIL
-    ParseRule(None,          None,       Precedence.OR),          # TOKEN_OR
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_PRINT
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_RETURN
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_SUPER
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_THIS
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_TRUE
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_VAR
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_WHILE
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_ERROR
-    ParseRule(None,          None,       Precedence.NONE),        # TOKEN_EOF
-
-]
-
-
 class Compiler(object):
     """
     A single pass compiler using Pratt’s parsing technique.
@@ -168,6 +121,7 @@ class Compiler(object):
         return constant
 
     def current_chunk(self):
+        assert self.chunk is not None
         return self.chunk
 
     def emit_byte(self, byte):
@@ -214,20 +168,17 @@ class Compiler(object):
     def parse_precedence(self, precedence):
         # parses any expression of a given precedence level or higher
         self.advance()
-        prefix_rule = self._get_rule(self.parser.previous.type)[0]
+        prefix_rule = self._get_rule(self.parser.previous.type).prefix
         if prefix_rule is None:
             self.error("Expected expression.")
             return
         else:
-            prefix_method = getattr(self, prefix_rule)
-            prefix_method()
+            prefix_rule(self)
 
-        while precedence <= self._get_rule(self.parser.current.type)[2]:
+        while precedence <= self._get_rule(self.parser.current.type).precedence:
             self.advance()
-            infix_method_name = self._get_rule(self.parser.previous.type)[1]
-            infix_method = getattr(self, infix_method_name)
-            infix_method()
-
+            infix_method = self._get_rule(self.parser.previous.type).infix
+            infix_method(self)
 
     def number(self):
         value = float(self.scanner.get_token_string(self.parser.previous))
@@ -241,3 +192,48 @@ class Compiler(object):
         return rules[op_type]
 
 
+# The table that drives our whole parser. Entries per token of:
+# [ prefix, infix, precedence]
+rules = [
+    ParseRule(Compiler.grouping,    None,               Precedence.CALL),        # TOKEN_LEFT_PAREN
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_RIGHT_PAREN
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_LEFT_BRACE
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_RIGHT_BRACE
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_COMMA
+    ParseRule(None,                 None,               Precedence.CALL),        # TOKEN_DOT
+    ParseRule(Compiler.unary,       Compiler.binary,    Precedence.TERM),        # TOKEN_MINUS
+    ParseRule(None,                 Compiler.binary,    Precedence.TERM),        # TOKEN_PLUS
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_SEMICOLON
+    ParseRule(None,                 Compiler.binary,    Precedence.FACTOR),      # TOKEN_SLASH
+    ParseRule(None,                 Compiler.binary,    Precedence.FACTOR),      # TOKEN_STAR
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_BANG
+    ParseRule(None,                 None,               Precedence.EQUALITY),    # TOKEN_BANG_EQUAL
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_EQUAL
+    ParseRule(None,                 None,               Precedence.EQUALITY),    # TOKEN_EQUAL_EQUAL
+    ParseRule(None,                 None,               Precedence.COMPARISON),  # TOKEN_GREATER
+    ParseRule(None,                 None,               Precedence.COMPARISON),  # TOKEN_GREATER_EQUAL
+    ParseRule(None,                 None,               Precedence.COMPARISON),  # TOKEN_LESS
+    ParseRule(None,                 None,               Precedence.COMPARISON),  # TOKEN_LESS_EQUAL
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_IDENTIFIER
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_STRING
+    ParseRule(Compiler.number,      None,               Precedence.NONE),        # TOKEN_NUMBER
+    ParseRule(None,                 None,               Precedence.AND),         # TOKEN_AND
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_CLASS
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_ELSE
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_FALSE
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_FUN
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_FOR
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_IF
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_NIL
+    ParseRule(None,                 None,               Precedence.OR),          # TOKEN_OR
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_PRINT
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_RETURN
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_SUPER
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_THIS
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_TRUE
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_VAR
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_WHILE
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_ERROR
+    ParseRule(None,                 None,               Precedence.NONE),        # TOKEN_EOF
+
+]
