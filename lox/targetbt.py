@@ -77,7 +77,7 @@ def example():
     chunk.disassemble("test chunk")
 
     print "== Executing in vm =="
-    interpreter_result = vm.interpret(chunk)
+    interpreter_result = vm.interpret_chunk(chunk)
     print IntepretResultToName[interpreter_result]
 
 

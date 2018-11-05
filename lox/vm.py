@@ -102,14 +102,20 @@ class VM(object):
         self._reset_stack()
         compiler = Compiler(source)
         if compiler.compile():
-            return self.interpret_chunk(compiler.chunk)
+            return self.interpret_chunk(compiler.current_chunk())
+        else:
+            return IntepretResultCode.INTERPRET_COMPILE_ERROR
 
     def interpret_chunk(self, chunk):
         if self.debug_trace:
             print "== VM TRACE =="
         self.chunk = chunk
         self.ip = 0
-        return self._run()
+        try:
+            result = self._run()
+            return result
+        except:
+            return IntepretResultCode.INTERPRET_RUNTIME_ERROR
 
     def _read_byte(self):
         instruction = self.chunk.code[self.ip]
@@ -124,9 +130,7 @@ class VM(object):
         print "value: %f" % constant.value
 
     def _binary_op(self, operator):
-        op1 = self._stack_pop()
         op2 = self._stack_pop()
+        op1 = self._stack_pop()
         result = operator(op1, op2)
         self._stack_push(result)
-
-
