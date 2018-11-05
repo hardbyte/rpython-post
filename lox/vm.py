@@ -1,7 +1,5 @@
 
-from lox import OpCode, compile
-from lox.compiler import Compiler
-
+from lox import OpCode, Compiler
 from lox.debug import disassemble_instruction
 
 
@@ -105,9 +103,10 @@ class VM(object):
     def interpret(self, source):
         # TODO check throws compile error
         compiler = Compiler(source)
-        self.chunk = compiler.compile()
-        result = self._run()
-        return result
+        if compiler.compile():
+            self.chunk = compiler.chunk
+            result = self._run()
+            return result
 
     def interpret_chunk(self, chunk):
         self.chunk = chunk

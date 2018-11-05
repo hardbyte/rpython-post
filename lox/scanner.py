@@ -1,5 +1,5 @@
 
-_current_id = 0
+_current_id = -1
 
 
 def _inc_id():

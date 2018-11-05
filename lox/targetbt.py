@@ -8,6 +8,7 @@ from lox.vm import IntepretResultToName, IntepretResultCode
 from rpython.rlib import rfile
 import os
 
+
 def debug(msg):
     print "debug:", msg
 
@@ -15,13 +16,13 @@ def debug(msg):
 def repl(stream):
     vm = VM()
     while True:
+        print "> ",
         next_line = stream.readline()
         if not next_line:
             break
         print "^" + next_line
 
         vm.interpret(next_line)
-
 
 
 def runFile(filename):

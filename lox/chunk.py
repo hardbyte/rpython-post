@@ -55,4 +55,6 @@ class Chunk:
     def add_constant(self, value):
         if not isinstance(value, Value):
             value = Value(value)
+
+
         return self.constants.append(value)
