@@ -78,7 +78,9 @@ class Token(BaseToken):
     """
 
     def __init__(self, start, length, line, type):
-        super(Token, self).__init__(line, type)
+
+        self.line = line
+        self.type = type
         self.start = start
         self.length = length
 
@@ -89,7 +91,9 @@ class ErrorToken(BaseToken):
     """
 
     def __init__(self, message, line):
-        super(ErrorToken, self).__init__(line, TokenTypes.ERROR)
+
+        self.line = line
+        self.type = TokenTypes.ERROR
         self.message = message
 
 
@@ -175,7 +179,10 @@ class Scanner(object):
         if isinstance(token, ErrorToken):
             return token.message
         else:
-            return self.source[token.start:(token.start+token.length)]
+            end_loc = token.start + token.length
+            assert end_loc < len(self.source)
+            assert end_loc > 0
+            return self.source[token.start:end_loc]
 
     def advance(self):
         self.current += 1
