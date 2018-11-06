@@ -1,8 +1,5 @@
-from rpython.rlib.jit import JitDriver
-# So that you can still run this module under standard CPython, I add this
-# import guard that creates a dummy class instead.
 try:
-    from rpython.rlib.jit import JitDriver, elidable
+    from rpython.rlib.jit import JitDriver
 except ImportError:
     class JitDriver(object):
         def __init__(self,**kw): pass
