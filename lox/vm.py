@@ -1,7 +1,23 @@
+from rpython.rlib.jit import JitDriver
+# So that you can still run this module under standard CPython, I add this
+# import guard that creates a dummy class instead.
+try:
+    from rpython.rlib.jit import JitDriver, elidable
+except ImportError:
+    class JitDriver(object):
+        def __init__(self,**kw): pass
+        def jit_merge_point(self,**kw): pass
+        def can_enter_jit(self,**kw): pass
 
 from lox import OpCode, Compiler
-from lox.debug import disassemble_instruction
+from lox.debug import disassemble_instruction, get_printable_location
 
+
+jitdriver = JitDriver(
+    greens=['ip', 'instruction', 'chunk', 'vm'],
+    reds=['stack_top', 'stack'],
+    get_printable_location=get_printable_location
+)
 
 class IntepretResultCode:
     """
@@ -47,14 +63,24 @@ class VM(object):
         return self.stack[self.stack_top]
 
     def _run(self):
+        instruction = OpCode.OP_TEST
         while True:
+            jitdriver.jit_merge_point(
+                ip=self.ip,
+                chunk=self.chunk,
+                stack=self.stack,
+                stack_top=self.stack_top,
+                instruction=instruction,
+                vm=self
+            )
+
             if self.debug_trace:
                 self._print_stack()
                 disassemble_instruction(self.chunk, self.ip)
             instruction = self._read_byte()
 
             if instruction == OpCode.OP_RETURN:
-                print "<returning %s>" % self._stack_pop()
+                print "%s" % self._stack_pop()
                 return IntepretResultCode.INTERPRET_OK
             elif instruction == OpCode.OP_CONSTANT:
                 constant = self._read_constant()

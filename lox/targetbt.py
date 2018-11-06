@@ -9,6 +9,11 @@ from rpython.rlib import rfile
 import os
 
 
+def jitpolicy(driver):
+    from rpython.jit.codewriter.policy import JitPolicy
+    return JitPolicy()
+
+
 def debug(msg):
     print "debug:", msg
 
@@ -97,6 +102,7 @@ def entry_point(argv):
     return 0
 
 # _____ Define and setup target ___
+
 
 def target(*args):
     return entry_point, None

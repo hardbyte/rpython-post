@@ -10,7 +10,7 @@ class Value(object):
 
     def debug_repr(self):
         if isinstance(self.value, float):
-            return ("%f" % self.value)[:6]
+            return ("%f" % self.value)[:16]
         else:
             return str(self.value)
 
