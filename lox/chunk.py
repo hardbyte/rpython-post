@@ -58,7 +58,7 @@ class Chunk:
 
         # See if we already know this constant
         try:
-            return self.constants.values.index(value)
+            return self.constants.index(value)
         except ValueError:
             return self.constants.append(value)
 

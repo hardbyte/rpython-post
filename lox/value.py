@@ -28,6 +28,13 @@ class ValueArray(object):
     def __getitem__(self, item):
         return self.values[item]
 
+    def index(self, item):
+        # Return the index of an item in the array
+        for i, value in enumerate(self.values):
+            if item.value == value.value:
+                return i
+        raise ValueError("Not found")
+
     def append(self, value):
         """
 
