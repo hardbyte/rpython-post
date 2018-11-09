@@ -1,26 +1,8 @@
-try:
-    from rpython.rlib.jit import JitDriver
-except ImportError:
-    class JitDriver(object):
-        def __init__(self,**kw): pass
-        def jit_merge_point(self,**kw): pass
-        def can_enter_jit(self,**kw): pass
+from opcodes import OpCode
+from debug import disassemble_instruction, get_printable_location
 
-from lox import OpCode, Compiler
-from lox.debug import disassemble_instruction, get_printable_location
-
-
-jitdriver = JitDriver(
-    greens=['ip', 'instruction', 'chunk', 'vm'],
-    reds=['stack_top', 'stack'],
-    get_printable_location=get_printable_location
-)
 
 class IntepretResultCode:
-    """
-
-    """
-
     INTERPRET_OK = 0
     INTERPRET_COMPILE_ERROR = 1
     INTERPRET_RUNTIME_ERROR = 2
@@ -59,18 +41,17 @@ class VM(object):
         self.stack_top -= 1
         return self.stack[self.stack_top]
 
-    def _run(self):
-        instruction = OpCode.OP_CONSTANT
-        while True:
-            jitdriver.jit_merge_point(
-                ip=self.ip,
-                chunk=self.chunk,
-                stack=self.stack,
-                stack_top=self.stack_top,
-                instruction=instruction,
-                vm=self
-            )
+    def _print_stack(self):
+        print "         ",
+        if self.stack_top <= 0:
+            print "[]",
+        else:
+            for i in range(self.stack_top):
+                print "[ %s ]" % self.stack[i],
+        print
 
+    def _run(self):
+        while True:
             if self.debug_trace:
                 self._print_stack()
                 disassemble_instruction(self.chunk, self.ip)
@@ -81,7 +62,7 @@ class VM(object):
                 return IntepretResultCode.INTERPRET_OK
             elif instruction == OpCode.OP_CONSTANT:
                 constant = self._read_constant()
-                self._stack_push(constant.value)
+                self._stack_push(constant)
             elif instruction == OpCode.OP_NEGATE:
                 operand = self._stack_pop()
                 operand *= -1
@@ -95,14 +76,6 @@ class VM(object):
             elif instruction == OpCode.OP_DIVIDE:
                 self._binary_op(self._stack_divide)
 
-    def _print_stack(self):
-        print "         ",
-        if self.stack_top <= 0:
-            print "[]",
-        else:
-            for i in range(self.stack_top):
-                print "[ %s ]" % self.stack[i],
-        print
 
     @staticmethod
     def _stack_add(op1, op2):
@@ -119,14 +92,6 @@ class VM(object):
     @staticmethod
     def _stack_divide(op1, op2):
         return op1 / op2
-
-    def interpret(self, source):
-        self._reset_stack()
-        compiler = Compiler(source, debugging=self.debug_trace)
-        if compiler.compile():
-            return self.interpret_chunk(compiler.current_chunk())
-        else:
-            return IntepretResultCode.INTERPRET_COMPILE_ERROR
 
     def interpret_chunk(self, chunk):
         if self.debug_trace:
@@ -147,9 +112,6 @@ class VM(object):
     def _read_constant(self):
         constant_index = self._read_byte()
         return self.chunk.constants[constant_index]
-
-    def print_value(self, constant):
-        print "value: %f" % constant.value
 
     def _binary_op(self, operator):
         op2 = self._stack_pop()

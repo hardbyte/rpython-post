@@ -1,9 +1,7 @@
 
-
 class Value(object):
     """
     Boxing of values.
-
     """
     def __init__(self, value):
         self.value = value
@@ -13,12 +11,6 @@ class Value(object):
             return ("%f" % self.value)[:16]
         else:
             return str(self.value)
-
-    def __repr__(self):
-        return "<Value: '%s'>" % self.value
-
-    def __eq__(self, other):
-        return self.value == other.value
 
 
 class ValueArray(object):
@@ -43,4 +35,3 @@ class ValueArray(object):
         """
         self.values.append(value)
         return len(self.values) - 1
-

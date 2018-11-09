@@ -1,5 +1,4 @@
 
-
 class OpCode:
     """
     The OpCodes of our language's VM
