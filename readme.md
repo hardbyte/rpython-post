@@ -190,7 +190,9 @@ A virtual machine is the execution engine of our basic math interpreter. It will
 only able to do simple tasks like addition. I won't go into any depth to describe why we want
 a virtual machine, but it is worth noting that many languages including java and python make 
 this decision to compile to an intermediate bytecode representation and then execute that with
-a virtual machine.  
+a virtual machine. Alternatives are compiling directly to native machine code like the V8
+javascript engine, or at the other end of the spectrum executing an abstract syntax tree - 
+although that isn't very fashionable outside of command shells. 
 
 We are going to keep things very simple. We will have a stack where we can push and pop values,
 we will only support floats, and our VM will only implement a few very basic operations.
@@ -354,6 +356,13 @@ bytecode:
 0005 OP_RETURN
 ```
 
+We won't go down the route of serializing the bytecode to disk, but this bytecode chunk
+(including the constant data) could be saved and executed on our VM later - like a java
+`.class` file. Perhaps a math expression
+archive (.mar)
+and compile our math expressions as a separate step and then execute the bytecode using 
+our vm. 
+
 ### Emulation  
 
 So those 4 instructions of bytecode combined with the constant value mapping
@@ -408,7 +417,7 @@ class VM(object):
 ```
 
 
-Now we get to the main event, the hot loop. Hope I haven't built it up to much, it is 
+Now we get to the main event, the hot loop, the VM engine. Hope I haven't built it up to much, it is 
 actually really simple! We loop until the instructions tell us to stop (`OP_RETURN`),
 and dispatch to other simple methods based on the instruction.
 
@@ -502,7 +511,9 @@ def entry_point(argv):
     return 0
 ```
 
-Which translates, and when run gives us:
+I've added some trace debugging so we can see what the VM and stack is doing.
+
+The whole thing translates with RPython, and when run gives us:
 
 ```
 ./vm3
@@ -518,14 +529,287 @@ Which translates, and when run gives us:
 3
 ```
 
-Yes we just computed the result of `1+2`. Pack yourself on the back. 
+Yes we just computed the result of `1+2`. Pat yourself on the back. 
 
 At this point it is probably valid to check that the translated executable is actually
 faster than running our program directly in Python. For this trivial example under 
 `Python2`/`pypy` this `targetvm3.py` file runs in 20ms - 90ms region, and the compiled
-`vm3` runs in <5ms. Something must be happening during the translation
+`vm3` runs in <5ms. Something useful must be happening during the translation.
+
+I won't go through the code adding support for our other instructions as they are
+very similar and straightforward. Our VM is ready to execute our chunks of bytecode,
+but we haven't yet worked out how to take the entered expression and turn that into
+this simple bytecode. This is broken into two steps, scanning and compiling.
 
 ## Scanning the source
 
+TODO look at the rpython provided scanning tools, perhaps walk through both.
+
+_All the source for this section can be found in 
+[section-3-scanning](https://github.com/hardbyte/pylox/tree/pypy-blog/section-3-scanning)._
+
+The job of the scanner is to take the raw expression string and transform it into
+a sequence of tokens. This scanning step will strip out whitespace and comments, 
+catch errors with invalid token and tokenize the string. For example the input 
+`"( 1 + 2 )` would get tokenized into `LEFT_PAREN, NUMBER(1), PLUS, NUMBER(2), RIGHT_PAREN`.
+
+As with our `OpCodes` we will just define a simple Python class to define an `int`
+for each type of token:
+
+```python
+class TokenTypes:
+    ERROR = 0
+    EOF = 1
+    LEFT_PAREN = 2
+    RIGHT_PAREN = 3
+    MINUS = 4
+    PLUS = 5
+    SLASH = 6
+    STAR = 7
+    NUMBER = 8
+
+```
+
+A token has to keep some other information as well - keeping track of the `location` and 
+`length` of the token will be helpful for error reporting. The NUMBER Token clearly needs 
+some data about the value it is representing: we could include a copy of the source lexeme 
+(e.g. the string `2.0`), or parse the value and store that, or - what we will do in this 
+blog - use the `location` and `length` information as pointers into the original source 
+string. Every token type (except perhaps `ERROR`) will use this simple data structure: 
+
+```python
+class Token(object):
+
+    def __init__(self, start, length, token_type):
+        self.start = start
+        self.length = length
+        self.type = token_type
+```
+
+Our soon to be scanner will create these `Token` objects which refer back to addresses
+in some source. If the scanner sees the source `"( 1 + 2.0 )"` it would emit the following
+tokens:
+
+```python
+Token(0, 1, TokenTypes.LEFT_PAREN)
+Token(2, 1, TokenTypes.NUMBER)
+Token(4, 1, TokenTypes.PLUS)
+Token(6, 3, TokenTypes.NUMBER)
+Token(10, 1, TokenTypes.RIGHT_PAREN)
+```
+
+### Scanner
+
+Let's walk through the scanner implementation method by method. The scanner will take the
+source and pass through it once, creating tokens as it goes.
+
+```python
+class Scanner(object):
+
+    def __init__(self, source):
+        self.source = source
+        self.start = 0
+        self.current = 0
+```
+
+The `start` and `current` pointers refer to the current substring being considered as a
+token. For example in the string `"( 1.05 + 2)"` while we are tokenizing the number 1.05
+we will have a start pointing at the 1, and advance `current` character by character until
+the character is no longer part of a number. 
+
+| ( |   |   1 | . |   0   | 5 | + | 
+|---|---|-----|---|-------|---|---|
+|   |   |start|   |current|   |   |
+
+The method to carry out this tokenizing is `_number`:
+
+```python
+    def _number(self):
+        while self._peek().isdigit():
+            self.advance()
+
+        # Look for decimal point
+        if self._peek() == '.' and self._peek_next().isdigit():
+            self.advance()
+            while self._peek().isdigit():
+                self.advance()
+
+        return self._make_token(TokenTypes.NUMBER)
+```
+
+It relies on a few helpers to look ahead at the upcoming characters:
+
+```python
+    def _peek(self):
+        if self.current == len(self.source):
+            # At the end
+            return '\0'
+        return self.source[self.current]
+
+    def _peek_next(self):
+        if self._is_at_end():
+            return '\0'
+        return self.source[self.current+1]
+
+    def _is_at_end(self):
+        return len(self.source) == self.current
+```
+
+If the character at `current` is still part of the number we want to `advance`:
+
+```python
+    def advance(self):
+        self.current += 1
+        return self.source[self.current - 1]
+```
+
+Once the `isdigit()` check fails we call `_make_token()` to emit the token:
+
+```python
+    def _make_token(self, token_type):
+        return Token(
+            start=self.start,
+            length=(self.current - self.start),
+            token_type=token_type
+        )
+```
+
+Our scanner is pull based, a token will be requested via `scan_token` and
+we skip past comments and whitespace and emit the correct token:
+
+```python
+    def scan_token(self):
+        # skip any whitespace
+        while True:
+            char = self._peek()
+            if char in ' \r\t\n':
+                self.advance()
+            break
+        
+        self.start = self.current
+
+        if self._is_at_end():
+            return self._make_token(TokenTypes.EOF)
+
+        char = self.advance()
+
+        if char.isdigit():
+            return self._number()
+
+        if char == '(':
+            return self._make_token(TokenTypes.LEFT_PAREN)
+        if char == ')':
+            return self._make_token(TokenTypes.RIGHT_PAREN)
+        if char == '-':
+            return self._make_token(TokenTypes.MINUS)
+        if char == '+':
+            return self._make_token(TokenTypes.PLUS)
+        if char == '/':
+            return self._make_token(TokenTypes.SLASH)
+        if char == '*':
+            return self._make_token(TokenTypes.STAR)
+
+        return ErrorToken("Unexpected character", self.current)
+``` 
+
+To make it easier to debug, and to test that it all works let's add a `get_token_string`
+helper that will carry out range checks on our indexes into `source`:
+
+```python
+    def get_token_string(self, token):
+        if isinstance(token, ErrorToken):
+            return token.message
+        else:
+            end_loc = token.start + token.length
+            assert end_loc < len(self.source)
+            assert end_loc > 0
+            return self.source[token.start:end_loc]
+
+```
+
+Now a simple entry point will test our scanner with a hard coded string:
+
+`./section-2-scanning/targetscanner1.py`
+```python
+from scanner import Scanner, TokenTypes, TokenTypeToName
+
+
+def entry_point(argv):
+
+    source = "(   1   + 2.0 )"
+
+    scanner = Scanner(source)
+    t = scanner.scan_token()
+    while t.type != TokenTypes.EOF and t.type != TokenTypes.ERROR:
+        print TokenTypeToName[t.type],
+        if t.type == TokenTypes.NUMBER:
+            print "(%s)" % scanner.get_token_string(t),
+        print
+        t = scanner.scan_token()
+    return 0
+```
+
+RPython didn't complain, and lo it works:
+```
+$ ./scanner1 
+LEFT_PAREN
+NUMBER (1)
+PLUS
+NUMBER (2.0)
+RIGHT_PAREN
+```
+
+Let's connect our repl to the scanner.
+
+`./section-2-scanning/targetscanner2.py`
+```python
+from rpython.rlib import rfile
+from scanner import Scanner, TokenTypes, TokenTypeToName
+
+LINE_BUFFER_LENGTH = 1024
+
+
+def repl(stdin, stdout):
+    while True:
+        stdout.write("> ")
+        source = stdin.readline(LINE_BUFFER_LENGTH)
+
+        scanner = Scanner(source)
+        t = scanner.scan_token()
+        while t.type != TokenTypes.EOF and t.type != TokenTypes.ERROR:
+            print TokenTypeToName[t.type],
+            if t.type == TokenTypes.NUMBER:
+                print "(%s)" % scanner.get_token_string(t),
+            print
+            t = scanner.scan_token()
+
+
+def entry_point(argv):
+    stdin, stdout, stderr = rfile.create_stdio()
+    try:
+        repl(stdin, stdout)
+    except:
+        pass
+    return 0
+
+```
+
+With our repl hooked up we can now scan tokens from arbitrary input:
+
+```
+$ ./scanner2
+> (3 *4) - -3
+LEFT_PAREN
+NUMBER (3)
+STAR
+NUMBER (4)
+RIGHT_PAREN
+MINUS
+MINUS
+NUMBER (3)
+> ^C
+```
+
 ## Compiling expressions
+
 

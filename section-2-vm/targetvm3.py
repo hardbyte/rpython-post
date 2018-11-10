@@ -25,5 +25,3 @@ def entry_point(argv):
 def target(driver, *args):
     driver.exe_name = "vm3"
     return entry_point, None
-
-entry_point([])
