@@ -13,9 +13,14 @@ excellent book [craftinginterpreters.com](https://www.craftinginterpreters.com).
 
 ## The road ahead
 
-As this post is rather long I'll break it into a few major sections.
+As this post is rather long I'll break it into a few major sections. In each section we will
+have something that translates with RPython, and at the end it all comes together. 
 
-TODO TOC
+- [REPL](#a-repl)
+- [Virtual Machine](#a-virtual-machine)
+- [Scanning the source](#scanning-the-source)
+- [Compiling Expressions](#compiling-expressions)
+- [End to end](#end-to-end)
 
 ## A REPL
 
@@ -543,10 +548,8 @@ this simple bytecode. This is broken into two steps, scanning and compiling.
 
 ## Scanning the source
 
-TODO look at the rpython provided scanning tools, perhaps walk through both.
-
 _All the source for this section can be found in 
-[section-3-scanning](https://github.com/hardbyte/pylox/tree/pypy-blog/section-3-scanning)._
+[section-3-scanning](section-3-scanning)._
 
 The job of the scanner is to take the raw expression string and transform it into
 a sequence of tokens. This scanning step will strip out whitespace and comments, 
@@ -600,8 +603,9 @@ Token(10, 1, TokenTypes.RIGHT_PAREN)
 
 ### Scanner
 
-Let's walk through the scanner implementation method by method. The scanner will take the
-source and pass through it once, creating tokens as it goes.
+Let's walk through the scanner [implementation](section-3-scanning/scanner.py) method
+by method. The scanner will take the source and pass through it once, creating tokens
+as it goes.
 
 ```python
 class Scanner(object):
@@ -612,16 +616,32 @@ class Scanner(object):
         self.current = 0
 ```
 
-The `start` and `current` pointers refer to the current substring being considered as a
-token. For example in the string `"( 1.05 + 2)"` while we are tokenizing the number 1.05
-we will have a start pointing at the 1, and advance `current` character by character until
-the character is no longer part of a number. 
+The `start` and `current` variables are character indices in the source string that point to 
+the current substring being considered as a token. 
 
-| ( |   |   1 | . |   0   | 5 | + | 
-|---|---|-----|---|-------|---|---|
-|   |   |start|   |current|   |   |
+For example in the string `"( 51.05+2)"` while we are tokenizing the number `51.05`
+we will have `start` pointing at the `5`, and advance `current` character by character
+until the character is no longer part of a number. Midway through scanning the number 
+the `start` and `current` values might point to `1` and `4` respectively:
 
-The method to carry out this tokenizing is `_number`:
+
+| 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 
+|---|---|---|---|---|---|---|---|---|
+|"("|"5"|"1"|"."|"0"|"5"|"+"|"2"|")"| 
+|---|---|---|---|---|---|---|---|---|
+|   | ^ |   |   | ^ |   |   |   |   |
+
+From `current=4` the scanner peeks ahead and sees that the next character (`5`) is
+a digit, so will continue to advance.
+
+| 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 
+|---|---|---|---|---|---|---|---|---|
+|"("|"5"|"1"|"."|"0"|"5"|"+"|"2"|")"| 
+|---|---|---|---|---|---|---|---|---|
+|   | ^ |   |   |   | ^ |   |   |   |
+
+When the scanner peeks ahead and sees the `"+"` it will create the number
+token and emit it. The method that carry's out this tokenizing is `_number`:
 
 ```python
     def _number(self):
@@ -729,7 +749,7 @@ helper that will carry out range checks on our indexes into `source`:
 
 Now a simple entry point will test our scanner with a hard coded string:
 
-`./section-2-scanning/targetscanner1.py`
+[`targetscanner1.py`](./section-3-scanning/targetscanner1.py)
 ```python
 from scanner import Scanner, TokenTypes, TokenTypeToName
 
@@ -761,7 +781,7 @@ RIGHT_PAREN
 
 Let's connect our repl to the scanner.
 
-`./section-2-scanning/targetscanner2.py`
+[`targetscanner2.py`](./section-3-scanning/targetscanner2.py)
 ```python
 from rpython.rlib import rfile
 from scanner import Scanner, TokenTypes, TokenTypeToName
@@ -812,16 +832,19 @@ NUMBER (3)
 
 ## Compiling expressions
 
-REF: http://www.craftinginterpreters.com/compiling-expressions.html
-REF: http://effbot.org/zone/simple-top-down-parsing.htm
+### References
+
+- https://www.craftinginterpreters.com/compiling-expressions.html
+- http://effbot.org/zone/simple-top-down-parsing.htm
 
 The final piece is to turn this sequence of tokens into our low level 
 bytecode instructions for the virtual machine to execute. Buckle up, 
 we are about to write us a compiler.
 
-What we do though is a single pass over the tokens using 
+Our compiler will take a single pass over the tokens using 
 [Vaughan Pratt’s](https://en.wikipedia.org/wiki/Vaughan_Pratt) 
-parsing technique. Everything is powered 
+parsing technique, and output a chunk of bytecode - if we do it
+right it will be compatible with our existing virtual machine.
 
 We define a parser object which will keep track of where we are, and
 whether things have all gone horribly wrong:
@@ -864,17 +887,17 @@ To quote from Bob Nystrom on the Pratt parsing technique:
 
 > the implementation is a deceptively-simple handful of deeply intertwined code
 
-I don't actually think I can do justice to this section. I suggest 
+I don't actually think I can do justice to this section. Instead I suggest 
 reading his treatment in 
 [Pratt Parsers: Expression Parsing Made Easy](http://journal.stuffwithstuff.com/2011/03/19/pratt-parsers-expression-parsing-made-easy/)
 which explains the parsing component our major difference is instead of creating 
 an AST we are going to directly emit bytecode. 
 
 Now that I've absolved myself from explaining this tricky concept, I'll just 
-discuss some of the code from `section-4-compiler/compiler.py`.
+discuss some of the code from [`compiler.py`](section-4-compiler/compiler.py).
 
 I'll jump straight to the juicy bit the table of parse rules. There is a `ParseRule`
-for each token, and each rule comprises: 
+for each token, and each rule comprises:
 - an optional handler for when the token is as a _prefix_ (e.g. the minus in `(-2)`),
 - an optional handler for whet the token is used _infix_ (e.g. the slash in `2/47`)
 - a precedence value (a number that determines what is of higher precedence)
@@ -940,7 +963,8 @@ has to emit a single byte with the `OP_NEGATE` opcode.
 ### Test compilation
 
 Now we can test our compiler by outputting disassembled bytecode
-of our user entered expressions. Create a new entry_point:
+of our user entered expressions. Create a new entry_point 
+[`targetcompiler`](section-4-compiler/targetcompiler1.py):
  
 ```python
 from rpython.rlib import rfile
@@ -985,14 +1009,15 @@ together by executing this bytecode with the virtual machine.
 ## End to end
 
 All the pieces slot together rather easily at this point, create a new 
-file `targetcalc.py` and define our `calc` entry point:
+file [`targetcalc.py`](section-5-execution/targetcalc.py) and define our 
+entry point:
 
 ```python
 from rpython.rlib import rfile
 from compiler import Compiler
 from vm import VM
 
-LINE_BUFFER_LENGTH = 1024
+LINE_BUFFER_LENGTH = 4096
 
 
 def entry_point(argv):
@@ -1035,7 +1060,8 @@ $ ./calc
 5.000000
 ```
 
-Ok well let's generate the first 50 terms of the Nilakantha Series
+Ok well let's evaluate the first 50 terms of the 
+[Nilakantha Series](https://en.wikipedia.org/wiki/Pi#Infinite_series):
 
 ```
 $ calc
@@ -1063,5 +1089,5 @@ $ calc
 3.191743
 ```
 
-Cool beans. Well I hope if you made it this far it has been interesting or useful.
+Cool beans, 605 virtual machine instructions to compute pi to 1dp!
 
