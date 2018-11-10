@@ -812,4 +812,256 @@ NUMBER (3)
 
 ## Compiling expressions
 
+REF: http://www.craftinginterpreters.com/compiling-expressions.html
+REF: http://effbot.org/zone/simple-top-down-parsing.htm
+
+The final piece is to turn this sequence of tokens into our low level 
+bytecode instructions for the virtual machine to execute. Buckle up, 
+we are about to write us a compiler.
+
+What we do though is a single pass over the tokens using 
+[Vaughan Pratt’s](https://en.wikipedia.org/wiki/Vaughan_Pratt) 
+parsing technique. Everything is powered 
+
+We define a parser object which will keep track of where we are, and
+whether things have all gone horribly wrong:
+
+```python
+class Parser(object):
+    def __init__(self):
+        self.had_error = False
+        self.panic_mode = False
+        self.current = None
+        self.previous = None
+```
+
+The compiler will also be a class, we'll need on of our `Scanner` instances
+and since the output is a chunk let's go ahead and make one of those in our 
+compiler initializer:
+
+```python
+class Compiler(object):
+
+    def __init__(self, source):
+        self.parser = Parser()
+        self.scanner = Scanner(source)
+        self.chunk = Chunk()
+```
+
+Since we have this (empty) chunk of bytecode we will make some helper methods
+to add individual and pairs of bytes:
+
+```python
+    def emit_byte(self, byte):
+        self.current_chunk().write_chunk(byte)
+
+    def emit_bytes(self, byte_a, byte_b):
+        self.emit_byte(byte_a)
+        self.emit_byte(byte_b)
+```
+
+To quote from Bob Nystrom on the Pratt parsing technique:
+
+> the implementation is a deceptively-simple handful of deeply intertwined code
+
+I don't actually think I can do justice to this section. I suggest 
+reading his treatment in 
+[Pratt Parsers: Expression Parsing Made Easy](http://journal.stuffwithstuff.com/2011/03/19/pratt-parsers-expression-parsing-made-easy/)
+which explains the parsing component our major difference is instead of creating 
+an AST we are going to directly emit bytecode. 
+
+Now that I've absolved myself from explaining this tricky concept, I'll just 
+discuss some of the code from `section-4-compiler/compiler.py`.
+
+I'll jump straight to the juicy bit the table of parse rules. There is a `ParseRule`
+for each token, and each rule comprises: 
+- an optional handler for when the token is as a _prefix_ (e.g. the minus in `(-2)`),
+- an optional handler for whet the token is used _infix_ (e.g. the slash in `2/47`)
+- a precedence value (a number that determines what is of higher precedence)
+
+
+```python
+rules = [
+    ParseRule(None,              None,            Precedence.NONE),   # ERROR
+    ParseRule(None,              None,            Precedence.NONE),   # EOF
+    ParseRule(Compiler.grouping, None,            Precedence.CALL),   # LEFT_PAREN
+    ParseRule(None,              None,            Precedence.NONE),   # RIGHT_PAREN
+    ParseRule(Compiler.unary,    Compiler.binary, Precedence.TERM),   # MINUS
+    ParseRule(None,              Compiler.binary, Precedence.TERM),   # PLUS
+    ParseRule(None,              Compiler.binary, Precedence.FACTOR), # SLASH
+    ParseRule(None,              Compiler.binary, Precedence.FACTOR), # STAR
+    ParseRule(Compiler.number,   None,            Precedence.NONE),   # NUMBER
+]
+
+class Precedence(object):
+    NONE = 0
+    DEFAULT = 1
+    TERM = 6        # + -
+    FACTOR = 7      # * /
+    UNARY = 8       # ! - +
+    CALL = 9        # ()
+    PRIMARY = 10
+
+```
+
+What happens when compiling `-2.0` into bytecode? We start by pulling the token 
+`MINUS` from the scanner. 
+
+We immediately lookup the `prefix` handler in the rule table which points us at `unary`.
+
+```python
+    def parse_precedence(self, precedence):
+        # parses any expression of a given precedence level or higher
+        self.advance()
+        prefix_rule = self._get_rule(self.parser.previous.type).prefix
+        prefix_rule(self)
+``` 
+
+`unary` is called:
+
+```python
+    def unary(self):
+        op_type = self.parser.previous.type
+        # Compile the operand
+        self.parse_precedence(Precedence.UNARY)
+        # Emit the operator instruction
+        if op_type == TokenTypes.MINUS:
+            self.emit_byte(OpCode.OP_NEGATE)
+
+```
+
+Here we recurse back into `parse_precedence` to ensure that _whatever_ follows 
+the `MINUS` token is compiled - provided it has lower precedence than `unary`. 
+Crucially at run time this recursive call will ensure that the result is left 
+on top of our stack. Armed with this knowledge, the `unary` method just
+has to emit a single byte with the `OP_NEGATE` opcode.
+
+
+### Test compilation
+
+Now we can test our compiler by outputting disassembled bytecode
+of our user entered expressions. Create a new entry_point:
+ 
+```python
+from rpython.rlib import rfile
+from compiler import Compiler
+
+LINE_BUFFER_LENGTH = 1024
+
+
+def entry_point(argv):
+    stdin, stdout, stderr = rfile.create_stdio()
+
+    try:
+        while True:
+            stdout.write("> ")
+            source = stdin.readline(LINE_BUFFER_LENGTH)
+            compiler = Compiler(source, debugging=True)
+            compiler.compile()
+    except:
+        pass
+    return 0
+```
+
+Translate it and test it out:
+```
+$ ./compiler1 
+> (2/4 + 1/2)
+== code ==
+
+0000 OP_CONSTANT  (00) '2.000000'
+0002 OP_CONSTANT  (01) '4.000000'
+0004 OP_DIVIDE    
+0005 OP_CONSTANT  (02) '1.000000'
+0007 OP_CONSTANT  (00) '2.000000'
+0009 OP_DIVIDE    
+0010 OP_ADD       
+0011 OP_RETURN
+```
+
+Now if you've made it this far you'll be eager to finally connect everything
+together by executing this bytecode with the virtual machine.
+
+## End to end
+
+All the pieces slot together rather easily at this point, create a new 
+file `targetcalc.py` and define our `calc` entry point:
+
+```python
+from rpython.rlib import rfile
+from compiler import Compiler
+from vm import VM
+
+LINE_BUFFER_LENGTH = 1024
+
+
+def entry_point(argv):
+    stdin, stdout, stderr = rfile.create_stdio()
+    vm = VM()
+    try:
+        while True:
+            stdout.write("> ")
+            source = stdin.readline(LINE_BUFFER_LENGTH)
+            if source:
+                compiler = Compiler(source, debugging=False)
+                compiler.compile()
+                vm.interpret_chunk(compiler.chunk)
+    except:
+        pass
+    return 0
+
+
+def target(driver, *args):
+    driver.exe_name = "calc"
+    return entry_point, None
+``` 
+
+Let's try catch it out with a double negative:
+
+```
+$ ./calc 
+> 2--3
+== VM TRACE ==
+          []
+0000 OP_CONSTANT  (00) '2.000000'
+          [ 2.000000 ]
+0002 OP_CONSTANT  (01) '3.000000'
+          [ 2.000000 ] [ 3.000000 ]
+0004 OP_NEGATE    
+          [ 2.000000 ] [ -3.000000 ]
+0005 OP_SUBTRACT  
+          [ 5.000000 ]
+0006 OP_RETURN    
+5.000000
+```
+
+Ok well let's generate the first 50 terms of the Nilakantha Series
+
+```
+$ calc
+> 3 + 4 * ((1/(2 * 3 * 4)) + (1/(4 * 5 * 6)) - (1/(6 * 7 * 8)) + (1/(8 * 9 * 10)) - (1/(10 * 11 * 12)) + (1/(12 * 13 * 14)) - (1/(14 * 15 * 16)) + (1/(16 * 17 * 18)) - (1/(18 * 19 * 20)) + (1/(20 * 21 * 22)) - (1/(22 * 23 * 24)) + (1/(24 * 25 * 26)) - (1/(26 * 27 * 28)) + (1/(28 * 29 * 30)) - (1/(30 * 31 * 32)) + (1/(32 * 33 * 34)) - (1/(34 * 35 * 36)) + (1/(36 * 37 * 38)) - (1/(38 * 39 * 40)) + (1/(40 * 41 * 42)) - (1/(42 * 43 * 44)) + (1/(44 * 45 * 46)) - (1/(46 * 47 * 48)) + (1/(48 * 49 * 50)) - (1/(50 * 51 * 52)) + (1/(52 * 53 * 54)) - (1/(54 * 55 * 56)) + (1/(56 * 57 * 58)) - (1/(58 * 59 * 60)) + (1/(60 * 61 * 62)) - (1/(62 * 63 * 64)) + (1/(64 * 65 * 66)) - (1/(66 * 67 * 68)) + (1/(68 * 69 * 70)) - (1/(70 * 71 * 72)) + (1/(72 * 73 * 74)) - (1/(74 * 75 * 76)) + (1/(76 * 77 * 78)) - (1/(78 * 79 * 80)) + (1/(80 * 81 * 82)) - (1/(82 * 83 * 84)) + (1/(84 * 85 * 86)) - (1/(86 * 87 * 88)) + (1/(88 * 89 * 90)) - (1/(90 * 91 * 92)) + (1/(92 * 93 * 94)) - (1/(94 * 95 * 96)) + (1/(96 * 97 * 98)) - (1/(98 * 99 * 100)) + (1/(100 * 101 * 102)))
+
+== VM TRACE ==
+          []
+0000 OP_CONSTANT  (00) '3.000000'
+          [ 3.000000 ]
+0002 OP_CONSTANT  (01) '4.000000'
+...SNIP...
+0598 OP_CONSTANT  (101) '102.000000'
+          [ 3.000000 ] [ 4.000000 ] [ 0.047935 ] [ 1.000000 ] [ 10100.000000 ] [ 102.000000 ]
+0600 OP_MULTIPLY  
+          [ 3.000000 ] [ 4.000000 ] [ 0.047935 ] [ 1.000000 ] [ 1030200.000000 ]
+0601 OP_DIVIDE    
+          [ 3.000000 ] [ 4.000000 ] [ 0.047935 ] [ 0.000001 ]
+0602 OP_ADD       
+          [ 3.000000 ] [ 4.000000 ] [ 0.047936 ]
+0603 OP_MULTIPLY  
+          [ 3.000000 ] [ 0.191743 ]
+0604 OP_ADD       
+          [ 3.191743 ]
+0605 OP_RETURN    
+3.191743
+```
+
+Cool beans. Well I hope if you made it this far it has been interesting or useful.
 
