@@ -8,7 +8,8 @@ This post is a bit of a diversion while on my journey to create a compliant
 using the [rpython translation toolchain](https://rpython.readthedocs.io). The 
 majority of this work is a direct rpython translation of the low level C 
 guide from Bob Nystrom ([@munificentbob](https://twitter.com/munificentbob)) in the
-excellent book [craftinginterpreters.com](https://www.craftinginterpreters.com).
+excellent book [craftinginterpreters.com](https://www.craftinginterpreters.com)
+in chapters 14 - 17.
 
 
 ## The road ahead
@@ -21,6 +22,8 @@ have something that translates with RPython, and at the end it all comes togethe
 - [Scanning the source](#scanning-the-source)
 - [Compiling Expressions](#compiling-expressions)
 - [End to end](#end-to-end)
+- [Bonus - JIT](#jit-the-vm)
+
 
 ## A REPL
 
@@ -50,7 +53,7 @@ faster?
 Let's see what happens. We need to add 2 functions for rpython to
 get its bearings (`entry_point` and `target`) and call the file `targetXXX`:
 
-`section-1-repl/target1.py`
+[`targetrepl1.py`](section-1-repl/targetrepl1.py)
 
 ```python
 def repl():
@@ -72,7 +75,7 @@ we are trying to call a Python built-in `raw_input` that is unfortunately not
 valid RPython.
 
 ```
-$ rpython ./1/target1.py
+$ rpython ./1/targetrepl1.py
 ...SNIP...
 [translation:ERROR] AnnotatorError: 
 
@@ -93,7 +96,7 @@ Ok so we can't use `raw_input` or `eval` but that doesn't faze us. Let's get
 the input from a stdin stream and just print it out (no evaluation).
  
 
-`section-1-repl/target2.py`
+[`targetrepl2.py`](section-1-repl/targetrepl2.py)
 ```python
 from rpython.rlib import rfile
 
@@ -120,10 +123,11 @@ def target(driver, *args):
 
 ```
 
-Translate `target2.py`:
+Translate `targetrepl2.py` - we can add an optimization level if we
+are so inclined:
 
 ```
-$ rpython --opt=2 1/target2.py
+$ rpython --opt=2 section-1-repl/targetrepl2.py
 ...SNIP...
 [Timer] Timings:
 [Timer] annotate                       ---  1.2 s
@@ -190,7 +194,6 @@ our rpython repl behind for a while and connect it up at the end.
 
 ## A virtual machine
 
-
 A virtual machine is the execution engine of our basic math interpreter. It will be very simple,
 only able to do simple tasks like addition. I won't go into any depth to describe why we want
 a virtual machine, but it is worth noting that many languages including java and python make 
@@ -217,7 +220,8 @@ In fact our entire instruction set is:
 Since we are targeting rpython we can't use the nice `enum` module from the Python standard
 library, so instead we just define a simple class with class attributes.
  
-Create a new file `opcodes.py` and add this:
+We should start to get organized, so we will create a new file 
+[`opcodes.py`](section-2-vm/opcodes.py) and add this:
 
 ```python
 class OpCode:
@@ -232,14 +236,12 @@ class OpCode:
 
 ### Chunks
 
-Ref: 
-
 To start with we need to get some infrastructure in place before we write the VM engine.
 
 Following [craftinginterpreters.com](https://www.craftinginterpreters.com/chunks-of-bytecode.html)
 we start with a `Chunk` object which will represent our bytecode. In RPython we have access 
 to Python-esq lists so our `code` object will just be a list of OpCode values - which are 
-just integers. 
+just integers. A list of ints, couldn't get much simpler.
 
 `section-2-vm/chunk.py`
 ```python
@@ -284,6 +286,7 @@ def leftpad_string(string, width, char=" "):
 Write a new `entry_point` that creates and disassembles a chunk of bytecode. We can
 set the target output name to `vm1` at the same time:
 
+[`targetvm1.py`](section-2-vm/targetvm1.py)
 ```python
 def entry_point(argv):
     bytecode = Chunk()
@@ -296,6 +299,9 @@ def target(driver, *args):
     driver.exe_name = "vm1"
     return entry_point, None
 ```
+
+Running this isn't going to be terribly interesting, but it is always nice to
+know that it is doing what you expect:
 
 ```
 $ ./vm1 
@@ -363,10 +369,8 @@ bytecode:
 
 We won't go down the route of serializing the bytecode to disk, but this bytecode chunk
 (including the constant data) could be saved and executed on our VM later - like a java
-`.class` file. Perhaps a math expression
-archive (.mar)
-and compile our math expressions as a separate step and then execute the bytecode using 
-our vm. 
+`.class` file. Instead we will pass the bytecode directly to our VM after we've created
+it during the compilation process. 
 
 ### Emulation  
 
@@ -379,7 +383,7 @@ As I mentioned earlier this virtual machine will have a stack, so let's begin wi
 Now the stack is going to be a busy little beast - as our VM takes instructions like 
 `OP_ADD` it will pop off the top two values from the stack, and push the result of adding 
 them together back onto the stack. Although dynamically resizing Python lists 
-are marvelous, they can be a little slow. (TODO I'm not sure if RPython actually needs this
+are marvelous, they can be a little slow. (I'm not sure if RPython actually needs this
 hint?)
 
 So for (premature) performance optimization reasons we will define a constant sized list
@@ -420,7 +424,6 @@ class VM(object):
         print
 
 ```
-
 
 Now we get to the main event, the hot loop, the VM engine. Hope I haven't built it up to much, it is 
 actually really simple! We loop until the instructions tell us to stop (`OP_RETURN`),
@@ -619,7 +622,7 @@ class Scanner(object):
 The `start` and `current` variables are character indices in the source string that point to 
 the current substring being considered as a token. 
 
-For example in the string `"( 51.05+2)"` while we are tokenizing the number `51.05`
+For example in the string `"(51.05+2)"` while we are tokenizing the number `51.05`
 we will have `start` pointing at the `5`, and advance `current` character by character
 until the character is no longer part of a number. Midway through scanning the number 
 the `start` and `current` values might point to `1` and `4` respectively:
@@ -628,7 +631,6 @@ the `start` and `current` values might point to `1` and `4` respectively:
 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 
 |---|---|---|---|---|---|---|---|---|
 |"("|"5"|"1"|"."|"0"|"5"|"+"|"2"|")"| 
-|---|---|---|---|---|---|---|---|---|
 |   | ^ |   |   | ^ |   |   |   |   |
 
 From `current=4` the scanner peeks ahead and sees that the next character (`5`) is
@@ -637,7 +639,6 @@ a digit, so will continue to advance.
 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 
 |---|---|---|---|---|---|---|---|---|
 |"("|"5"|"1"|"."|"0"|"5"|"+"|"2"|")"| 
-|---|---|---|---|---|---|---|---|---|
 |   | ^ |   |   |   | ^ |   |   |   |
 
 When the scanner peeks ahead and sees the `"+"` it will create the number
