@@ -305,7 +305,7 @@ know that it is doing what you expect:
 
 ```
 $ ./vm1 
-== adding example ==
+== hello world ==
 
 0000 OP_ADD       
 0001 OP_RETURN    
@@ -359,7 +359,7 @@ Which still translates with RPython and when run gives us the following disassem
 bytecode:
 
 ```$ ./vm2
-== adding example ==
+== adding constants ==
 
 0000 OP_CONSTANT  (00)        '1'
 0002 OP_CONSTANT  (01)        '2'
@@ -465,7 +465,7 @@ of the chunk's `code`, retrieve that constant value and add it to the VM's stack
         return self.chunk.constants[constant_index]
 ```
 
-Finally our first arithmetic operation `OP_ADD`, what it has to achive doesn't 
+Finally our first arithmetic operation `OP_ADD`, what it has to achieve doesn't 
 require much explanation: pop two values from the stack, add them together, push the result.
 But since a few operations all have the same template we introduce a layer of indirection - 
 or abstraction - by introducing a reusable `_binary_op` helper method.
@@ -662,8 +662,7 @@ It relies on a few helpers to look ahead at the upcoming characters:
 
 ```python
     def _peek(self):
-        if self.current == len(self.source):
-            # At the end
+        if self._is_at_end():
             return '\0'
         return self.source[self.current]
 
@@ -676,7 +675,8 @@ It relies on a few helpers to look ahead at the upcoming characters:
         return len(self.source) == self.current
 ```
 
-If the character at `current` is still part of the number we want to `advance`:
+If the character at `current` is still part of the number we want to call `advance`
+to move on by one character.
 
 ```python
     def advance(self):
@@ -684,7 +684,8 @@ If the character at `current` is still part of the number we want to `advance`:
         return self.source[self.current - 1]
 ```
 
-Once the `isdigit()` check fails we call `_make_token()` to emit the token:
+Once the `isdigit()` check fails in `_number()` we call `_make_token()` to emit the
+token with the `NUMBER` type.
 
 ```python
     def _make_token(self, token_type):
@@ -695,8 +696,11 @@ Once the `isdigit()` check fails we call `_make_token()` to emit the token:
         )
 ```
 
-Our scanner is pull based, a token will be requested via `scan_token` and
-we skip past comments and whitespace and emit the correct token:
+Note again that the token is linked to an index address in the source, rather than 
+including the string value.
+
+Our scanner is pull based, a token will be requested via `scan_token`. First we skip 
+past whitespace and depending on the characters emit the correct token:
 
 ```python
     def scan_token(self):
@@ -733,8 +737,12 @@ we skip past comments and whitespace and emit the correct token:
         return ErrorToken("Unexpected character", self.current)
 ``` 
 
-To make it easier to debug, and to test that it all works let's add a `get_token_string`
-helper that will carry out range checks on our indexes into `source`:
+If this was a real programming language we were scanning, this would be the point where we 
+add support for different types of literals and any language identifiers/reserved words.
+
+At some point we will need to parse the literal value for our numbers, but we leave that
+job for some later component, for now we'll just add a `get_token_string` helper. To make
+sure that RPython is happy to index arbitrary slices of `source` we add range assertions:
 
 ```python
     def get_token_string(self, token):
@@ -748,7 +756,8 @@ helper that will carry out range checks on our indexes into `source`:
 
 ```
 
-Now a simple entry point will test our scanner with a hard coded string:
+A simple entry point can be used to test our scanner with a hard coded 
+source string:
 
 [`targetscanner1.py`](./section-3-scanning/targetscanner1.py)
 ```python
@@ -847,6 +856,80 @@ Our compiler will take a single pass over the tokens using
 parsing technique, and output a chunk of bytecode - if we do it
 right it will be compatible with our existing virtual machine.
 
+Remember the bytecode we defined above is really simple - by relying 
+on our stack we can transform a nested expression into a sequence of
+our bytecode operations.
+
+To make this more concrete let's go through by hand translating an
+expression into bytecode.
+
+Our source expression:
+```
+(3 + 2) - (7 * 2)
+```
+ 
+If we were to make an abstract syntax tree we'd get something 
+like this:
+
+![AST](./images/ast.jpg)
+
+Now if we start at the first sub expression `(3+2)` we can clearly
+note from the first open bracket that we *must* see a close bracket,
+and that the expression inside that bracket *must* be valid on its 
+own. Not only that but regardless of the inside we know that the whole
+expression still has to be valid. Let's focus on this first bracketed
+expression, let our attention recurse into it so to speak.
+
+This gives us a much easier problem - we just want to get our virtual
+machine to compute `3 + 2`. In this bytecode dialect we would load the 
+two constants, and then add them with `OP_ADD` like so:  
+
+```
+OP_CONSTANT  (00) '3.000000'
+OP_CONSTANT  (01) '2.000000'
+OP_ADD
+```
+
+The effect of our vm executing these three instructions is that sitting
+pretty at the top of the stack is the result of the addition. Winning.
+
+Jumping back out from our bracketed expression, our next token is  
+`MINUS` - at this point we have a fair idea that it must be used in an 
+infix position. In fact whatever token followed the bracketed expression
+it *must* be a valid infix operator, that or the expression is over or 
+has a syntax error. 
+
+Assuming the best from our user (naive), we handle `MINUS` the same way
+we handled the first `PLUS`. We've already got the first operand on the
+stack, now we compile the right operand and then write out the bytecode
+for `OP_SUBTRACT`.
+
+The right operand is another simple three instructions:
+
+```
+OP_CONSTANT  (02) '7.000000'
+OP_CONSTANT  (03) '2.000000'
+OP_MULTIPLY
+```
+
+Then we finish our top level binary expression and write a `OP_RETURN` to
+return the value at the top of the stack as the execution's result. Our
+final hand compiled program is:
+
+    
+```
+OP_CONSTANT  (00) '3.000000'
+OP_CONSTANT  (01) '2.000000'
+OP_ADD
+OP_CONSTANT  (02) '7.000000'
+OP_CONSTANT  (03) '2.000000'
+OP_MULTIPLY
+OP_SUBTRACT
+OP_RETURN
+```
+
+Ok that wasn't so hard was it? Let's try make our code do that.
+
 We define a parser object which will keep track of where we are, and
 whether things have all gone horribly wrong:
 
@@ -891,13 +974,14 @@ To quote from Bob Nystrom on the Pratt parsing technique:
 I don't actually think I can do justice to this section. Instead I suggest 
 reading his treatment in 
 [Pratt Parsers: Expression Parsing Made Easy](http://journal.stuffwithstuff.com/2011/03/19/pratt-parsers-expression-parsing-made-easy/)
-which explains the parsing component our major difference is instead of creating 
-an AST we are going to directly emit bytecode. 
+which explains the magic behind the parsing component. Our only major difference is 
+instead of creating an AST we are going to directly emit bytecode for our VM. 
 
-Now that I've absolved myself from explaining this tricky concept, I'll just 
-discuss some of the code from [`compiler.py`](section-4-compiler/compiler.py).
+Now that I've absolved myself from explaining this tricky concept, I'll  
+discuss some of the code from [`compiler.py`](section-4-compiler/compiler.py), and 
+walk through what happens for a particular rule.
 
-I'll jump straight to the juicy bit the table of parse rules. There is a `ParseRule`
+I'll jump straight to the juicy bit the table of parse rules. We define a `ParseRule`
 for each token, and each rule comprises:
 - an optional handler for when the token is as a _prefix_ (e.g. the minus in `(-2)`),
 - an optional handler for whet the token is used _infix_ (e.g. the slash in `2/47`)

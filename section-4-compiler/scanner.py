@@ -120,8 +120,7 @@ class Scanner(object):
                 return
 
     def _peek(self):
-        if self.current == len(self.source):
-            # At the end
+        if self._is_at_end():
             return '\0'
         return self.source[self.current]
 
