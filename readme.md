@@ -942,9 +942,9 @@ class Parser(object):
         self.previous = None
 ```
 
-The compiler will also be a class, we'll need on of our `Scanner` instances
-and since the output is a chunk let's go ahead and make one of those in our 
-compiler initializer:
+The compiler will also be a class, we'll need one of our `Scanner` instances
+to pull tokens from, and since the output is a bytecode `Chunk` let's go ahead and make 
+one of those in our compiler initializer:
 
 ```python
 class Compiler(object):
@@ -955,16 +955,13 @@ class Compiler(object):
         self.chunk = Chunk()
 ```
 
-Since we have this (empty) chunk of bytecode we will make some helper methods
-to add individual and pairs of bytes:
+Since we have this (empty) chunk of bytecode we will make a helper method
+to add individual bytes. Every instruction will pass through this gate from
+our compiler out into the wild as an executable program.
 
 ```python
     def emit_byte(self, byte):
         self.current_chunk().write_chunk(byte)
-
-    def emit_bytes(self, byte_a, byte_b):
-        self.emit_byte(byte_a)
-        self.emit_byte(byte_b)
 ```
 
 To quote from Bob Nystrom on the Pratt parsing technique:
@@ -975,11 +972,12 @@ I don't actually think I can do justice to this section. Instead I suggest
 reading his treatment in 
 [Pratt Parsers: Expression Parsing Made Easy](http://journal.stuffwithstuff.com/2011/03/19/pratt-parsers-expression-parsing-made-easy/)
 which explains the magic behind the parsing component. Our only major difference is 
-instead of creating an AST we are going to directly emit bytecode for our VM. 
+instead of creating an AST we are going to directly emit bytecode for our VM.
 
-Now that I've absolved myself from explaining this tricky concept, I'll  
-discuss some of the code from [`compiler.py`](section-4-compiler/compiler.py), and 
-walk through what happens for a particular rule.
+Now that I've absolved myself from taking responsibility in explaining this somewhat
+tricky concept, I'll discuss some of the code from 
+[`compiler.py`](section-4-compiler/compiler.py), and walk through what happens 
+for a particular rule.
 
 I'll jump straight to the juicy bit the table of parse rules. We define a `ParseRule`
 for each token, and each rule comprises:
@@ -1000,7 +998,27 @@ rules = [
     ParseRule(None,              Compiler.binary, Precedence.FACTOR), # STAR
     ParseRule(Compiler.number,   None,            Precedence.NONE),   # NUMBER
 ]
+```
 
+These rules really are the magic of our compiler. When we get to a particular
+token such as `MINUS` we see if it is an infix operator and if so we've gone and
+got its first operand ready. At all times we rely on the relative precedence; consuming 
+everything with higher precedence than the operator we are currently evaluating.
+
+In the expression:
+```
+2 + 3 * 4
+```
+
+The `*` has higher precedence than the `+`, so `3 * 4` will be parsed together
+as the second operand to the first infix operator (the `+`) which follows
+the [BEDMAS](https://en.wikipedia.org/wiki/Order_of_operations#Mnemonics) 
+order of operations I was taught at high school.
+
+To encode these precedence values we make another Python object moonlighting
+as an enum:
+
+```python
 class Precedence(object):
     NONE = 0
     DEFAULT = 1
@@ -1009,13 +1027,14 @@ class Precedence(object):
     UNARY = 8       # ! - +
     CALL = 9        # ()
     PRIMARY = 10
-
 ```
 
-What happens when compiling `-2.0` into bytecode? We start by pulling the token 
-`MINUS` from the scanner. 
+What happens in our compiler when turning `-2.0` into bytecode? Assume we've just 
+pulled the token `MINUS` from the scanner. Every expression has to start with a 
+prefix whether that is a bracket group `(`, a primary `2`, or a prefix unary operator `-`. 
 
-We immediately lookup the `prefix` handler in the rule table which points us at `unary`.
+Knowing that, our compiler assumes there is a `prefix` handler in the rule table 
+- in this case it points us at the `unary` handler.
 
 ```python
     def parse_precedence(self, precedence):
@@ -1035,11 +1054,11 @@ We immediately lookup the `prefix` handler in the rule table which points us at 
         # Emit the operator instruction
         if op_type == TokenTypes.MINUS:
             self.emit_byte(OpCode.OP_NEGATE)
-
 ```
 
-Here we recurse back into `parse_precedence` to ensure that _whatever_ follows 
-the `MINUS` token is compiled - provided it has lower precedence than `unary`. 
+Here - before writing the `OP_NEGATE` opcode we recurse back into `parse_precedence`
+to ensure that _whatever_ follows the `MINUS` token is compiled - provided it has 
+higher precedence than `unary` - e.g. a bracketed group. 
 Crucially at run time this recursive call will ensure that the result is left 
 on top of our stack. Armed with this knowledge, the `unary` method just
 has to emit a single byte with the `OP_NEGATE` opcode.
