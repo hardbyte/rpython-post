@@ -893,11 +893,10 @@ OP_ADD
 The effect of our vm executing these three instructions is that sitting
 pretty at the top of the stack is the result of the addition. Winning.
 
-Jumping back out from our bracketed expression, our next token is  
-`MINUS` - at this point we have a fair idea that it must be used in an 
-infix position. In fact whatever token followed the bracketed expression
-it *must* be a valid infix operator, that or the expression is over or 
-has a syntax error. 
+Jumping back out from our bracketed expression, our next token is `MINUS`,
+at this point we have a fair idea that it must be used in an infix position. 
+In fact whatever token followed the bracketed expression it **must** be a 
+valid infix operator, if not the expression is over or had a syntax error. 
 
 Assuming the best from our user (naive), we handle `MINUS` the same way
 we handled the first `PLUS`. We've already got the first operand on the
@@ -1030,11 +1029,14 @@ class Precedence(object):
 ```
 
 What happens in our compiler when turning `-2.0` into bytecode? Assume we've just 
-pulled the token `MINUS` from the scanner. Every expression has to start with a 
-prefix whether that is a bracket group `(`, a primary `2`, or a prefix unary operator `-`. 
+pulled the token `MINUS` from the scanner. Every expression **has** to start with some
+type of prefix - whether that is:
+- a bracket group `(`, 
+- a number `2`, 
+- or a prefix unary operator `-`. 
 
-Knowing that, our compiler assumes there is a `prefix` handler in the rule table 
-- in this case it points us at the `unary` handler.
+Knowing that, our compiler assumes there is a `prefix` handler in the rule table - in
+this case it points us at the `unary` handler.
 
 ```python
     def parse_precedence(self, precedence):
