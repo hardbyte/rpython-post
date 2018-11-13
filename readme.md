@@ -336,6 +336,11 @@ empty list, and a new method `add_constant`.
 
 ```
 
+<!---
+cfbolz: aside: this is quadratic in the number of unique constants, you could
+use a dict instead. Probably doesn't matter in practice of course!
+-->
+
 Now to use this new capability we can modify our example chunk
 to write in some constants before the `OP_ADD`:
 
@@ -354,6 +359,11 @@ to write in some constants before the `OP_ADD`:
 
     bytecode.disassemble("adding constants")
 ```
+
+
+<!---
+cfbolz: shouldn't this be ".add_constant(1.0)" since it is all based on floats?
+-->
 
 Which still translates with RPython and when run gives us the following disassembled
 bytecode:
@@ -385,6 +395,10 @@ Now the stack is going to be a busy little beast - as our VM takes instructions 
 them together back onto the stack. Although dynamically resizing Python lists 
 are marvelous, they can be a little slow. (I'm not sure if RPython actually needs this
 hint?)
+<!---
+cfbolz: RPython does, actually! gives much better results because it means a
+lot more of the list manipulation will be removed.
+-->
 
 So for (premature) performance optimization reasons we will define a constant sized list
 and track the `stack_top` directly. Note how I'm trying to give the RPython translator hints
@@ -444,6 +458,9 @@ and dispatch to other simple methods based on the instruction.
                 self._binary_op(self._stack_add)    
 ```
 
+<!---
+cfbolz: typo in the code: "InterpretResultCode (missing r).
+-->
 
 Now the `_read_byte` method will have to keep track of which instruction we are up 
 to. So add an instruction pointer (`ip`) to the VM with an initial value of `0`.
@@ -482,6 +499,26 @@ or abstraction - by introducing a reusable `_binary_op` helper method.
         return op1 + op2
 
 ``` 
+
+<!---
+cfbolz: comment about the code: you can tell RPython to specialize _binary_op
+on the first argument like this:
+
+from rpython.rlib.objectmodel import specialize
+
+...
+
+    @specialize.arg(1)
+    def _binary_op(self, operator):
+        ...
+
+This will cause RPython to make a copy of _binary_op for every value of the
+first argument passed, which means that the copy contains a call to a constant
+operator, which can then be inlined.
+
+In your current version your generated C code would still contain a call to a
+function pointer.
+-->
 
 To run our example bytecode the only thing left to do is to pass in the
 chunk and call `_run()`:
@@ -543,6 +580,11 @@ At this point it is probably valid to check that the translated executable is ac
 faster than running our program directly in Python. For this trivial example under 
 `Python2`/`pypy` this `targetvm3.py` file runs in 20ms - 90ms region, and the compiled
 `vm3` runs in <5ms. Something useful must be happening during the translation.
+
+<!---
+cfbolz: I bet that the main difference is that vm3 starts up *much* quicker
+than python and pypy ;-)
+-->
 
 I won't go through the code adding support for our other instructions as they are
 very similar and straightforward. Our VM is ready to execute our chunks of bytecode,
@@ -1197,3 +1239,10 @@ $ calc
 
 Cool beans, 605 virtual machine instructions to compute pi to 1dp!
 
+
+<!---
+cfbolz: I think this is actually a nice place to end! I'd add a concluding sentence or two and be finished.
+
+adding a JIT for these expressions is not so obviously helpful, since we never
+execute a chunk twice, so producing machine code does not actually save time...
+-->
