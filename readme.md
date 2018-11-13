@@ -264,7 +264,7 @@ class Chunk:
 _From here on I'll only present minimal snippets of code instead of the whole lot, but 
 I'll link to the repository with the complete example code. For example the 
 various debugging including `disassemble_instruction` isn't particularly interesting
-to include verbatim._
+to include verbatim. See the [github repo](https://github.com/hardbyte/pylox/) for full details_
 
 
 We need to check that we can create a chunk and disassemble it. The quickest way to do this
