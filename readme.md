@@ -9,7 +9,7 @@ using the [RPython translation toolchain](https://rpython.readthedocs.io). The
 majority of this work is a direct RPython translation of the low level C 
 guide from Bob Nystrom ([@munificentbob](https://twitter.com/munificentbob)) in the
 excellent book [craftinginterpreters.com](https://www.craftinginterpreters.com)
-in chapters 14 - 17.
+in chapters 14 – 17.
 
 
 ## The road ahead
@@ -123,7 +123,7 @@ def target(driver, *args):
 
 ```
 
-Translate `targetrepl2.py` - we can add an optimization level if we
+Translate `targetrepl2.py` – we can add an optimization level if we
 are so inclined:
 
 ```
@@ -150,7 +150,7 @@ $ ./target2-c
 ^C
 ```
 
-Ahh our first success - let's quickly deal with the flushing fail by using the 
+Ahh our first success – let's quickly deal with the flushing fail by using the 
 stdout stream directly as well. Let's print out the input in quotes:
 
 ```python
@@ -199,7 +199,7 @@ only able to do simple tasks like addition. I won't go into any depth to describ
 a virtual machine, but it is worth noting that many languages including Java and Python make 
 this decision to compile to an intermediate bytecode representation and then execute that with
 a virtual machine. Alternatives are compiling directly to native machine code like (earlier versions of) the V8
-JavaScript engine, or at the other end of the spectrum executing an abstract syntax tree - 
+JavaScript engine, or at the other end of the spectrum executing an abstract syntax tree – 
 which is what the [Truffle approach to building VMs](https://blog.plan99.net/graal-truffle-134d8f28fb69) is based on. 
 
 We are going to keep things very simple. We will have a stack where we can push and pop values,
@@ -240,7 +240,7 @@ To start with we need to get some infrastructure in place before we write the VM
 
 Following [craftinginterpreters.com](https://www.craftinginterpreters.com/chunks-of-bytecode.html)
 we start with a `Chunk` object which will represent our bytecode. In RPython we have access 
-to Python-esq lists so our `code` object will just be a list of `OpCode` values - which are 
+to Python-esq lists so our `code` object will just be a list of `OpCode` values – which are 
 just integers. A list of ints, couldn't get much simpler.
 
 `section-2-vm/chunk.py`
@@ -316,7 +316,7 @@ $ ./vm1
 
 Ref: http://www.craftinginterpreters.com/chunks-of-bytecode.html#constants
 
-So our bytecode is missing a very crucial element - the values to operate on!
+So our bytecode is missing a very crucial element – the values to operate on!
 
 As with the bytecode we can store these constant values as part of the chunk
 directly in a list. Each chunk will therefore have a constant data component,
@@ -378,7 +378,7 @@ bytecode:
 ```
 
 We won't go down the route of serializing the bytecode to disk, but this bytecode chunk
-(including the constant data) could be saved and executed on our VM later - like a Java
+(including the constant data) could be saved and executed on our VM later – like a Java
 `.class` file. Instead we will pass the bytecode directly to our VM after we've created
 it during the compilation process. 
 
@@ -387,10 +387,10 @@ it during the compilation process.
 So those four instructions of bytecode combined with the constant value mapping
 `00 -> 1.0` and `01 -> 2.0` describes individual steps for our virtual machine
 to execute. One major point in favor of defining our own bytecode is we can 
-design it to be really simple to execute - this makes the VM really easy to implement.
+design it to be really simple to execute – this makes the VM really easy to implement.
 
 As I mentioned earlier this virtual machine will have a stack, so let's begin with that.
-Now the stack is going to be a busy little beast - as our VM takes instructions like 
+Now the stack is going to be a busy little beast – as our VM takes instructions like 
 `OP_ADD` it will pop off the top two values from the stack, and push the result of adding 
 them together back onto the stack. Although dynamically resizing Python lists 
 are marvelous, they can be a little slow. (I'm not sure if RPython actually needs this
@@ -484,8 +484,8 @@ of the chunk's `code`, retrieve that constant value and add it to the VM's stack
 
 Finally our first arithmetic operation `OP_ADD`, what it has to achieve doesn't 
 require much explanation: pop two values from the stack, add them together, push the result.
-But since a few operations all have the same template we introduce a layer of indirection - 
-or abstraction - by introducing a reusable `_binary_op` helper method.
+But since a few operations all have the same template we introduce a layer of indirection – 
+or abstraction – by introducing a reusable `_binary_op` helper method.
 
 ```python
     def _binary_op(self, operator):
@@ -578,7 +578,7 @@ Yes we just computed the result of `1+2`. Pat yourself on the back.
 
 At this point it is probably valid to check that the translated executable is actually
 faster than running our program directly in Python. For this trivial example under 
-`Python2`/`pypy` this `targetvm3.py` file runs in 20ms - 90ms region, and the compiled
+`Python2`/`pypy` this `targetvm3.py` file runs in 20ms – 90ms region, and the compiled
 `vm3` runs in <5ms. Something useful must be happening during the translation.
 
 <!---
@@ -618,11 +618,11 @@ class TokenTypes:
 
 ```
 
-A token has to keep some other information as well - keeping track of the `location` and 
+A token has to keep some other information as well – keeping track of the `location` and 
 `length` of the token will be helpful for error reporting. The NUMBER Token clearly needs 
 some data about the value it is representing: we could include a copy of the source lexeme 
-(e.g. the string `2.0`), or parse the value and store that, or - what we will do in this 
-blog - use the `location` and `length` information as pointers into the original source 
+(e.g. the string `2.0`), or parse the value and store that, or – what we will do in this 
+blog – use the `location` and `length` information as pointers into the original source 
 string. Every token type (except perhaps `ERROR`) will use this simple data structure: 
 
 ```python
@@ -895,10 +895,10 @@ we are about to write us a compiler.
 
 Our compiler will take a single pass over the tokens using 
 [Vaughan Pratt’s](https://en.wikipedia.org/wiki/Vaughan_Pratt) 
-parsing technique, and output a chunk of bytecode - if we do it
+parsing technique, and output a chunk of bytecode – if we do it
 right it will be compatible with our existing virtual machine.
 
-Remember the bytecode we defined above is really simple - by relying 
+Remember the bytecode we defined above is really simple – by relying 
 on our stack we can transform a nested expression into a sequence of
 our bytecode operations.
 
@@ -922,7 +922,7 @@ own. Not only that but regardless of the inside we know that the whole
 expression still has to be valid. Let's focus on this first bracketed
 expression, let our attention recurse into it so to speak.
 
-This gives us a much easier problem - we just want to get our virtual
+This gives us a much easier problem – we just want to get our virtual
 machine to compute `3 + 2`. In this bytecode dialect we would load the 
 two constants, and then add them with `OP_ADD` like so:  
 
@@ -1072,12 +1072,12 @@ class Precedence(object):
 
 What happens in our compiler when turning `-2.0` into bytecode? Assume we've just 
 pulled the token `MINUS` from the scanner. Every expression **has** to start with some
-type of prefix - whether that is:
+type of prefix – whether that is:
 - a bracket group `(`, 
 - a number `2`, 
 - or a prefix unary operator `-`. 
 
-Knowing that, our compiler assumes there is a `prefix` handler in the rule table - in
+Knowing that, our compiler assumes there is a `prefix` handler in the rule table – in
 this case it points us at the `unary` handler.
 
 ```python
@@ -1100,9 +1100,9 @@ this case it points us at the `unary` handler.
             self.emit_byte(OpCode.OP_NEGATE)
 ```
 
-Here - before writing the `OP_NEGATE` opcode we recurse back into `parse_precedence`
-to ensure that _whatever_ follows the `MINUS` token is compiled - provided it has 
-higher precedence than `unary` - e.g. a bracketed group. 
+Here – before writing the `OP_NEGATE` opcode we recurse back into `parse_precedence`
+to ensure that _whatever_ follows the `MINUS` token is compiled – provided it has 
+higher precedence than `unary` – e.g. a bracketed group. 
 Crucially at run time this recursive call will ensure that the result is left 
 on top of our stack. Armed with this knowledge, the `unary` method just
 has to emit a single byte with the `OP_NEGATE` opcode.
