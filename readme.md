@@ -198,9 +198,9 @@ A virtual machine is the execution engine of our basic math interpreter. It will
 only able to do simple tasks like addition. I won't go into any depth to describe why we want
 a virtual machine, but it is worth noting that many languages including Java and Python make 
 this decision to compile to an intermediate bytecode representation and then execute that with
-a virtual machine. Alternatives are compiling directly to native machine code like the V8
-javascript engine, or at the other end of the spectrum executing an abstract syntax tree - 
-although that isn't very fashionable outside of command shells. 
+a virtual machine. Alternatives are compiling directly to native machine code like (earlier versions of) the V8
+JavaScript engine, or at the other end of the spectrum executing an abstract syntax tree - 
+which is what the [Truffle approach to building VMs](https://blog.plan99.net/graal-truffle-134d8f28fb69) is based on. 
 
 We are going to keep things very simple. We will have a stack where we can push and pop values,
 we will only support floats, and our VM will only implement a few very basic operations.
