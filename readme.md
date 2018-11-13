@@ -374,7 +374,7 @@ it during the compilation process.
 
 ### Emulation  
 
-So those 4 instructions of bytecode combined with the constant value mapping
+So those four instructions of bytecode combined with the constant value mapping
 `00 -> 1.0` and `01 -> 2.0` describes individual steps for our virtual machine
 to execute. One major point in favor of defining our own bytecode is we can 
 design it to be really simple to execute - this makes the VM really easy to implement.
