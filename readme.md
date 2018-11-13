@@ -283,7 +283,7 @@ def leftpad_string(string, width, char=" "):
     return char * (width - l) + string
 ```
 
-Write a new `entry_point` that creates and disassembles a chunk of bytecode. We can
+Let's write a new `entry_point` that creates and disassembles a chunk of bytecode. We can
 set the target output name to `vm1` at the same time:
 
 [`targetvm1.py`](section-2-vm/targetvm1.py)
