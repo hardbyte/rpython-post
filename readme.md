@@ -1,12 +1,12 @@
-This is a tutorial style post that walks through using the rpython translation
+This is a tutorial style post that walks through using the RPython translation
 toolchain to create a simple REPL that executes basic math expressions. By the
 end we will be scanning the user's input into tokens, compiling those tokens into
 bytecode and running that bytecode in our own virtual machine.
 
 This post is a bit of a diversion while on my journey to create a compliant 
 [lox](http://www.craftinginterpreters.com/the-lox-language.html) implementation
-using the [rpython translation toolchain](https://rpython.readthedocs.io). The 
-majority of this work is a direct rpython translation of the low level C 
+using the [RPython translation toolchain](https://rpython.readthedocs.io). The 
+majority of this work is a direct RPython translation of the low level C 
 guide from Bob Nystrom ([@munificentbob](https://twitter.com/munificentbob)) in the
 excellent book [craftinginterpreters.com](https://www.craftinginterpreters.com)
 in chapters 14 - 17.
@@ -34,7 +34,7 @@ like this:
 
 ```python
 """
-A pure python repl that can parse simple math expressions
+A pure python REPL that can parse simple math expressions
 """
 while True:
     print(eval(raw_input("> ")))
@@ -47,10 +47,10 @@ $ python2 section-1-repl/main.py
 3.1880952381
 ```
 
-So can we just ask rpython to translate this into a binary that runs magically
+So can we just ask RPython to translate this into a binary that runs magically
 faster?
 
-Let's see what happens. We need to add 2 functions for rpython to
+Let's see what happens. We need to add two functions for RPython to
 get its bearings (`entry_point` and `target`) and call the file `targetXXX`:
 
 [`targetrepl1.py`](section-1-repl/targetrepl1.py)
@@ -190,13 +190,13 @@ $ ./target3-c
 
 So we are in a good place with taking user input and printing output... What about
 the whole math evaluation thing we were promised? For that we are can probably leave
-our rpython repl behind for a while and connect it up at the end.
+our RPython REPL behind for a while and connect it up at the end.
 
 ## A virtual machine
 
 A virtual machine is the execution engine of our basic math interpreter. It will be very simple,
 only able to do simple tasks like addition. I won't go into any depth to describe why we want
-a virtual machine, but it is worth noting that many languages including java and python make 
+a virtual machine, but it is worth noting that many languages including Java and Python make 
 this decision to compile to an intermediate bytecode representation and then execute that with
 a virtual machine. Alternatives are compiling directly to native machine code like the V8
 javascript engine, or at the other end of the spectrum executing an abstract syntax tree - 
@@ -217,7 +217,7 @@ In fact our entire instruction set is:
     OP_MULTIPLY
     OP_DIVIDE
 
-Since we are targeting rpython we can't use the nice `enum` module from the Python standard
+Since we are targeting RPython we can't use the nice `enum` module from the Python standard
 library, so instead we just define a simple class with class attributes.
  
 We should start to get organized, so we will create a new file 
@@ -240,7 +240,7 @@ To start with we need to get some infrastructure in place before we write the VM
 
 Following [craftinginterpreters.com](https://www.craftinginterpreters.com/chunks-of-bytecode.html)
 we start with a `Chunk` object which will represent our bytecode. In RPython we have access 
-to Python-esq lists so our `code` object will just be a list of OpCode values - which are 
+to Python-esq lists so our `code` object will just be a list of `OpCode` values - which are 
 just integers. A list of ints, couldn't get much simpler.
 
 `section-2-vm/chunk.py`
@@ -268,9 +268,9 @@ to include verbatim._
 
 
 We need to check that we can create a chunk and disassemble it. The quickest way to do this
-is to use python during development and debugging then every so often try to translate it.
+is to use Python during development and debugging then every so often try to translate it.
 
-Getting the disassemble part through the rpython translator was a hurdle for me as I
+Getting the disassemble part through the RPython translator was a hurdle for me as I
 quickly found that many `str` methods such as `format` are not supported, and only very basic
 `%` based formatting is supported. I ended up creating helper functions for string manipulation
 such as:
@@ -368,7 +368,7 @@ bytecode:
 ```
 
 We won't go down the route of serializing the bytecode to disk, but this bytecode chunk
-(including the constant data) could be saved and executed on our VM later - like a java
+(including the constant data) could be saved and executed on our VM later - like a Java
 `.class` file. Instead we will pass the bytecode directly to our VM after we've created
 it during the compilation process. 
 
@@ -387,7 +387,7 @@ are marvelous, they can be a little slow. (I'm not sure if RPython actually need
 hint?)
 
 So for (premature) performance optimization reasons we will define a constant sized list
-and track the `stack_top` directly. Note how I'm trying to give the rpython translator hints
+and track the `stack_top` directly. Note how I'm trying to give the RPython translator hints
 by adding assertions about the state that I promise the `stack_top` will be in.
  
 
@@ -446,7 +446,7 @@ and dispatch to other simple methods based on the instruction.
 
 
 Now the `_read_byte` method will have to keep track of which instruction we are up 
-to. So add an instruction pointer (`ip`) to the vm with an initial value of `0`.
+to. So add an instruction pointer (`ip`) to the VM with an initial value of `0`.
 Then `_read_byte` is simply getting the next bytecode (int) from the chunk's `code`:
 
 ```python
@@ -789,7 +789,7 @@ NUMBER (2.0)
 RIGHT_PAREN
 ```
 
-Let's connect our repl to the scanner.
+Let's connect our REPL to the scanner.
 
 [`targetscanner2.py`](./section-3-scanning/targetscanner2.py)
 ```python
@@ -824,7 +824,7 @@ def entry_point(argv):
 
 ```
 
-With our repl hooked up we can now scan tokens from arbitrary input:
+With our REPL hooked up we can now scan tokens from arbitrary input:
 
 ```
 $ ./scanner2
