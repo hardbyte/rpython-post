@@ -477,6 +477,7 @@ But since a few operations all have the same template we introduce a layer of in
 or abstraction – by introducing a reusable `_binary_op` helper method.
 
 ```python
+    @specialize.arg(1)
     def _binary_op(self, operator):
         op2 = self._stack_pop()
         op1 = self._stack_pop()
@@ -489,11 +490,10 @@ or abstraction – by introducing a reusable `_binary_op` helper method.
 
 ``` 
 
-<!---
-cfbolz: comment about the code: you can tell RPython to specialize _binary_op
-on the first argument like this:
-
-from rpython.rlib.objectmodel import specialize
+Note we tell RPython to specialize `_binary_op` on the first argument. This causes
+RPython to make a copy of `_binary_op` for every value of the first argument passed,
+which means that each copy contains a call to a particular operator, which can then be
+inlined.
 
 ...
 

@@ -1,5 +1,6 @@
 from opcodes import OpCode
-from debug import disassemble_instruction, get_printable_location
+from debug import disassemble_instruction
+from rpython.rlib.objectmodel import specialize
 
 
 class InterpretResultCode:
@@ -113,6 +114,7 @@ class VM(object):
         constant_index = self._read_byte()
         return self.chunk.constants[constant_index]
 
+    @specialize.arg(1)
     def _binary_op(self, operator):
         op2 = self._stack_pop()
         op1 = self._stack_pop()
