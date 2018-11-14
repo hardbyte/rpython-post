@@ -14,7 +14,7 @@ def entry_point(argv):
         source = stdin.readline(LINE_BUFFER_LENGTH).strip()
         if not source:
             break
-        compiler = Compiler(source, debugging=False)
+        compiler = Compiler(source, debugging=True)
 
         if compiler.compile():
             vm.interpret_chunk(compiler.chunk)
