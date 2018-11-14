@@ -2,14 +2,14 @@ from opcodes import OpCode
 from debug import disassemble_instruction, get_printable_location
 
 
-class IntepretResultCode:
+class InterpretResultCode:
     INTERPRET_OK = 0
     INTERPRET_COMPILE_ERROR = 1
     INTERPRET_RUNTIME_ERROR = 2
 
 
-IntepretResultToName = {getattr(IntepretResultCode, op): op
-                        for op in dir(IntepretResultCode) if op.startswith('INTERPRET_')}
+IntepretResultToName = {getattr(InterpretResultCode, op): op
+                        for op in dir(InterpretResultCode) if op.startswith('INTERPRET_')}
 
 
 class VM(object):
@@ -59,7 +59,7 @@ class VM(object):
 
             if instruction == OpCode.OP_RETURN:
                 print "%s" % self._stack_pop()
-                return IntepretResultCode.INTERPRET_OK
+                return InterpretResultCode.INTERPRET_OK
             elif instruction == OpCode.OP_CONSTANT:
                 constant = self._read_constant()
                 self._stack_push(constant)
@@ -102,7 +102,7 @@ class VM(object):
             result = self._run()
             return result
         except:
-            return IntepretResultCode.INTERPRET_RUNTIME_ERROR
+            return InterpretResultCode.INTERPRET_RUNTIME_ERROR
 
     def _read_byte(self):
         instruction = self.chunk.code[self.ip]

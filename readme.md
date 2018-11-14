@@ -346,11 +346,11 @@ to write in some constants before the `OP_ADD`:
 
 ```python
     bytecode = Chunk()
-    constant = bytecode.add_constant(1)
+    constant = bytecode.add_constant(1.0)
     bytecode.write_chunk(OpCode.OP_CONSTANT)
     bytecode.write_chunk(constant)
 
-    constant = bytecode.add_constant(2)
+    constant = bytecode.add_constant(2.0)
     bytecode.write_chunk(OpCode.OP_CONSTANT)
     bytecode.write_chunk(constant)
 
@@ -360,10 +360,6 @@ to write in some constants before the `OP_ADD`:
     bytecode.disassemble("adding constants")
 ```
 
-
-<!---
-cfbolz: shouldn't this be ".add_constant(1.0)" since it is all based on floats?
--->
 
 Which still translates with RPython and when run gives us the following disassembled
 bytecode:
@@ -450,7 +446,7 @@ and dispatch to other simple methods based on the instruction.
 
             if instruction == OpCode.OP_RETURN:
                 print "%s" % self._stack_pop()
-                return IntepretResultCode.INTERPRET_OK
+                return InterpretResultCode.INTERPRET_OK
             elif instruction == OpCode.OP_CONSTANT:
                 constant = self._read_constant()
                 self._stack_push(constant)
@@ -458,9 +454,6 @@ and dispatch to other simple methods based on the instruction.
                 self._binary_op(self._stack_add)    
 ```
 
-<!---
-cfbolz: typo in the code: "InterpretResultCode (missing r).
--->
 
 Now the `_read_byte` method will have to keep track of which instruction we are up 
 to. So add an instruction pointer (`ip`) to the VM with an initial value of `0`.
@@ -533,7 +526,7 @@ chunk and call `_run()`:
             result = self._run()
             return result
         except:
-            return IntepretResultCode.INTERPRET_RUNTIME_ERROR
+            return InterpretResultCode.INTERPRET_RUNTIME_ERROR
 ```
 
 `targetvm3.py` connects the pieces:
