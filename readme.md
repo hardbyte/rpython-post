@@ -1052,11 +1052,11 @@ as an enum:
 class Precedence(object):
     NONE = 0
     DEFAULT = 1
-    TERM = 6        # + -
-    FACTOR = 7      # * /
-    UNARY = 8       # ! - +
-    CALL = 9        # ()
-    PRIMARY = 10
+    TERM = 2        # + -
+    FACTOR = 3      # * /
+    UNARY = 4       # ! - +
+    CALL = 5        # ()
+    PRIMARY = 6
 ```
 
 What happens in our compiler when turning `-2.0` into bytecode? Assume we've just 

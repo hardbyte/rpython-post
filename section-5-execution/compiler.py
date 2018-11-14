@@ -15,11 +15,11 @@ class Parser(object):
 class Precedence(object):
     NONE = 0
     DEFAULT = 1
-    TERM = 6        # + -
-    FACTOR = 7      # * /
-    UNARY = 8       # ! - +
-    CALL = 9        # ()
-    PRIMARY = 10
+    TERM = 2        # + -
+    FACTOR = 3      # * /
+    UNARY = 4       # ! - +
+    CALL = 5        # ()
+    PRIMARY = 6
 
 
 class ParseRule(object):
