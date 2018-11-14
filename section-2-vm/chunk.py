@@ -19,10 +19,5 @@ class Chunk:
             i = disassemble_instruction(self, i)
 
     def add_constant(self, value):
-        # See if we already know this constant
-        for i, constant in enumerate(self.constants):
-            if constant == value:
-                return i
         self.constants.append(value)
         return len(self.constants) - 1
-

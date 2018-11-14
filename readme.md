@@ -327,10 +327,6 @@ empty list, and a new method `add_constant`.
 
 ```python
     def add_constant(self, value):
-        # See if we already know this constant
-        for i, constant in enumerate(self.constants):
-            if constant == value:
-                return i
         self.constants.append(value)
         return len(self.constants) - 1
 

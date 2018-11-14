@@ -8,6 +8,7 @@ class Chunk:
     def __init__(self):
         self.code = []
         self.constants = []
+        self._constants = {}
 
     def write_chunk(self, byte):
         self.code.append(byte)
@@ -20,9 +21,10 @@ class Chunk:
 
     def add_constant(self, value):
         # See if we already know this constant
-        for i, constant in enumerate(self.constants):
-            if constant == value:
-                return i
-        self.constants.append(value)
-        return len(self.constants) - 1
-
+        if value in self._constants:
+            return self._constants[value]
+        else:
+            index = len(self._constants)
+            self.constants.append(value)
+            self._constants[value] = index
+            return index
