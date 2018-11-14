@@ -1,7 +1,10 @@
 This is a tutorial style post that walks through using the RPython translation
-toolchain to create a simple REPL that executes basic math expressions. By the
-end we will be scanning the user's input into tokens, compiling those tokens into
-bytecode and running that bytecode in our own virtual machine.
+toolchain to create a REPL that executes basic math expressions. 
+
+We will do that by scanning the user's input into tokens, compiling those 
+tokens into bytecode and running that bytecode in our own virtual machine. Don't
+worry if that sounds horribly complicated, we are going to explain it step by
+step. 
 
 This post is a bit of a diversion while on my journey to create a compliant 
 [lox](http://www.craftinginterpreters.com/the-lox-language.html) implementation
@@ -9,7 +12,7 @@ using the [RPython translation toolchain](https://rpython.readthedocs.io). The
 majority of this work is a direct RPython translation of the low level C 
 guide from Bob Nystrom ([@munificentbob](https://twitter.com/munificentbob)) in the
 excellent book [craftinginterpreters.com](https://www.craftinginterpreters.com)
-in chapters 14 – 17.
+specifically the chapters 14 – 17.
 
 
 ## The road ahead
@@ -332,11 +335,6 @@ empty list, and a new method `add_constant`.
 
 ```
 
-<!---
-cfbolz: aside: this is quadratic in the number of unique constants, you could
-use a dict instead. Probably doesn't matter in practice of course!
--->
-
 Now to use this new capability we can modify our example chunk
 to write in some constants before the `OP_ADD`:
 
@@ -385,16 +383,12 @@ As I mentioned earlier this virtual machine will have a stack, so let's begin wi
 Now the stack is going to be a busy little beast – as our VM takes instructions like 
 `OP_ADD` it will pop off the top two values from the stack, and push the result of adding 
 them together back onto the stack. Although dynamically resizing Python lists 
-are marvelous, they can be a little slow. (I'm not sure if RPython actually needs this
-hint?)
-<!---
-cfbolz: RPython does, actually! gives much better results because it means a
-lot more of the list manipulation will be removed.
--->
+are marvelous, they can be a little slow. RPython can take advantage of a constant sized
+list which doesn't make our code much more complicated.
 
-So for (premature) performance optimization reasons we will define a constant sized list
-and track the `stack_top` directly. Note how I'm trying to give the RPython translator hints
-by adding assertions about the state that I promise the `stack_top` will be in.
+To do this we will define a constant sized list and track the `stack_top` directly. Note
+how we can give the RPython translator hints by adding assertions about the state that
+the `stack_top` will be in.
  
 
 ```python
@@ -431,9 +425,9 @@ class VM(object):
 
 ```
 
-Now we get to the main event, the hot loop, the VM engine. Hope I haven't built it up to much, it is 
-actually really simple! We loop until the instructions tell us to stop (`OP_RETURN`),
-and dispatch to other simple methods based on the instruction.
+Now we get to the main event, the hot loop, the VM engine. Hope I haven't built it up to
+much, it is actually really simple! We loop until the instructions tell us to stop 
+(`OP_RETURN`), and dispatch to other simple methods based on the instruction.
 
 ```python
     def _run(self):
@@ -472,9 +466,10 @@ of the chunk's `code`, retrieve that constant value and add it to the VM's stack
 ```
 
 Finally our first arithmetic operation `OP_ADD`, what it has to achieve doesn't 
-require much explanation: pop two values from the stack, add them together, push the result.
-But since a few operations all have the same template we introduce a layer of indirection – 
-or abstraction – by introducing a reusable `_binary_op` helper method.
+require much explanation: pop two values from the stack, add them together, push 
+the result. But since a few operations all have the same template we introduce a
+layer of indirection – or abstraction – by introducing a reusable `_binary_op` 
+helper method.
 
 ```python
     @specialize.arg(1)
@@ -495,22 +490,8 @@ RPython to make a copy of `_binary_op` for every value of the first argument pas
 which means that each copy contains a call to a particular operator, which can then be
 inlined.
 
-...
-
-    @specialize.arg(1)
-    def _binary_op(self, operator):
-        ...
-
-This will cause RPython to make a copy of _binary_op for every value of the
-first argument passed, which means that the copy contains a call to a constant
-operator, which can then be inlined.
-
-In your current version your generated C code would still contain a call to a
-function pointer.
--->
-
-To run our example bytecode the only thing left to do is to pass in the
-chunk and call `_run()`:
+To be able to run our bytecode the only thing left to do is to pass in the chunk 
+and call `_run()`:
 
 ```python
     def interpret_chunk(self, chunk):
@@ -525,7 +506,7 @@ chunk and call `_run()`:
             return InterpretResultCode.INTERPRET_RUNTIME_ERROR
 ```
 
-`targetvm3.py` connects the pieces:
+[`targetvm3.py`](./section-2-vm/targetvm3.py) connects the pieces:
 
 ```python
 def entry_point(argv):
@@ -567,13 +548,8 @@ Yes we just computed the result of `1+2`. Pat yourself on the back.
 
 At this point it is probably valid to check that the translated executable is actually
 faster than running our program directly in Python. For this trivial example under 
-`Python2`/`pypy` this `targetvm3.py` file runs in 20ms – 90ms region, and the compiled
-`vm3` runs in <5ms. Something useful must be happening during the translation.
-
-<!---
-cfbolz: I bet that the main difference is that vm3 starts up *much* quicker
-than python and pypy ;-)
--->
+`Python2`/`pypy` this `targetvm3.py` file runs in the 20ms – 90ms region, and the 
+compiled `vm3` runs in <5ms. Something useful must be happening during the translation.
 
 I won't go through the code adding support for our other instructions as they are
 very similar and straightforward. Our VM is ready to execute our chunks of bytecode,
@@ -583,7 +559,7 @@ this simple bytecode. This is broken into two steps, scanning and compiling.
 ## Scanning the source
 
 _All the source for this section can be found in 
-[section-3-scanning](section-3-scanning)._
+[section-3-scanning](./section-3-scanning)._
 
 The job of the scanner is to take the raw expression string and transform it into
 a sequence of tokens. This scanning step will strip out whitespace and comments, 
@@ -608,7 +584,7 @@ class TokenTypes:
 ```
 
 A token has to keep some other information as well – keeping track of the `location` and 
-`length` of the token will be helpful for error reporting. The NUMBER Token clearly needs 
+`length` of the token will be helpful for error reporting. The `NUMBER` token clearly needs 
 some data about the value it is representing: we could include a copy of the source lexeme 
 (e.g. the string `2.0`), or parse the value and store that, or – what we will do in this 
 blog – use the `location` and `length` information as pointers into the original source 
@@ -623,9 +599,9 @@ class Token(object):
         self.type = token_type
 ```
 
-Our soon to be scanner will create these `Token` objects which refer back to addresses
-in some source. If the scanner sees the source `"( 1 + 2.0 )"` it would emit the following
-tokens:
+Our soon to be created scanner will create these `Token` objects which refer back to 
+addresses in some source. If the scanner sees the source `"( 1 + 2.0 )"` it would emit
+the following tokens:
 
 ```python
 Token(0, 1, TokenTypes.LEFT_PAREN)
@@ -931,7 +907,7 @@ valid infix operator, if not the expression is over or had a syntax error.
 
 Assuming the best from our user (naive), we handle `MINUS` the same way
 we handled the first `PLUS`. We've already got the first operand on the
-stack, now we compile the right operand and then write out the bytecode
+stack, now we compile the right operand and **then** write out the bytecode
 for `OP_SUBTRACT`.
 
 The right operand is another simple three instructions:
@@ -973,8 +949,8 @@ class Parser(object):
 ```
 
 The compiler will also be a class, we'll need one of our `Scanner` instances
-to pull tokens from, and since the output is a bytecode `Chunk` let's go ahead and make 
-one of those in our compiler initializer:
+to pull tokens from, and since the output is a bytecode `Chunk` let's go ahead
+and make one of those in our compiler initializer:
 
 ```python
 class Compiler(object):
@@ -986,8 +962,8 @@ class Compiler(object):
 ```
 
 Since we have this (empty) chunk of bytecode we will make a helper method
-to add individual bytes. Every instruction will pass through this gate from
-our compiler out into the wild as an executable program.
+to add individual bytes. Every instruction will pass from our compiler into
+an executable program through this simple .
 
 ```python
     def emit_byte(self, byte):
@@ -1201,7 +1177,7 @@ Ok well let's evaluate the first 50 terms of the
 [Nilakantha Series](https://en.wikipedia.org/wiki/Pi#Infinite_series):
 
 ```
-$ calc
+$ ./calc
 > 3 + 4 * ((1/(2 * 3 * 4)) + (1/(4 * 5 * 6)) - (1/(6 * 7 * 8)) + (1/(8 * 9 * 10)) - (1/(10 * 11 * 12)) + (1/(12 * 13 * 14)) - (1/(14 * 15 * 16)) + (1/(16 * 17 * 18)) - (1/(18 * 19 * 20)) + (1/(20 * 21 * 22)) - (1/(22 * 23 * 24)) + (1/(24 * 25 * 26)) - (1/(26 * 27 * 28)) + (1/(28 * 29 * 30)) - (1/(30 * 31 * 32)) + (1/(32 * 33 * 34)) - (1/(34 * 35 * 36)) + (1/(36 * 37 * 38)) - (1/(38 * 39 * 40)) + (1/(40 * 41 * 42)) - (1/(42 * 43 * 44)) + (1/(44 * 45 * 46)) - (1/(46 * 47 * 48)) + (1/(48 * 49 * 50)) - (1/(50 * 51 * 52)) + (1/(52 * 53 * 54)) - (1/(54 * 55 * 56)) + (1/(56 * 57 * 58)) - (1/(58 * 59 * 60)) + (1/(60 * 61 * 62)) - (1/(62 * 63 * 64)) + (1/(64 * 65 * 66)) - (1/(66 * 67 * 68)) + (1/(68 * 69 * 70)) - (1/(70 * 71 * 72)) + (1/(72 * 73 * 74)) - (1/(74 * 75 * 76)) + (1/(76 * 77 * 78)) - (1/(78 * 79 * 80)) + (1/(80 * 81 * 82)) - (1/(82 * 83 * 84)) + (1/(84 * 85 * 86)) - (1/(86 * 87 * 88)) + (1/(88 * 89 * 90)) - (1/(90 * 91 * 92)) + (1/(92 * 93 * 94)) - (1/(94 * 95 * 96)) + (1/(96 * 97 * 98)) - (1/(98 * 99 * 100)) + (1/(100 * 101 * 102)))
 
 == VM TRACE ==
@@ -1226,12 +1202,20 @@ $ calc
 3.191743
 ```
 
-Cool beans, 605 virtual machine instructions to compute pi to 1dp!
+We just executed 605 virtual machine instructions to compute pi to 1dp!
+
+This brings us to the end of this tutorial. To recap we've walked through the whole 
+compilation process: from the user providing an expression string on the REPL, scanning
+the source string into tokens, parsing the tokens while accounting for relative 
+precedence via a Pratt parser, generating bytecode, and finally executing the bytecode 
+on our own VM. RPython translated what we wrote into C and compiled it, meaning
+our resulting `calc` REPL is really fast.
+
+> “The world is a thing of utter inordinate complexity and richness and strangeness that is absolutely awesome.”
+> ― Douglas Adams 
 
 
-<!---
-cfbolz: I think this is actually a nice place to end! I'd add a concluding sentence or two and be finished.
+Many thanks to Bob Nystrom for writing the book that inspired this post, and thanks to 
+Carl Friedrich and Matt Halverson for reviewing.
 
-adding a JIT for these expressions is not so obviously helpful, since we never
-execute a chunk twice, so producing machine code does not actually save time...
--->
+-- Brian
