@@ -89,7 +89,7 @@ class Scanner(object):
             return token.message
         else:
             end_loc = token.start + token.length
-            assert end_loc < len(self.source)
+            assert end_loc <= len(self.source)
             assert end_loc > 0
             return self.source[token.start:end_loc]
 
