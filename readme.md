@@ -25,7 +25,6 @@ have something that translates with RPython, and at the end it all comes togethe
 - [Scanning the source](#scanning-the-source)
 - [Compiling Expressions](#compiling-expressions)
 - [End to end](#end-to-end)
-- [Bonus - JIT](#jit-the-vm)
 
 
 ## A REPL
@@ -1212,10 +1211,11 @@ on our own VM. RPython translated what we wrote into C and compiled it, meaning
 our resulting `calc` REPL is really fast.
 
 > “The world is a thing of utter inordinate complexity and richness and strangeness that is absolutely awesome.”
+>
 > ― Douglas Adams 
 
 
 Many thanks to Bob Nystrom for writing the book that inspired this post, and thanks to 
 Carl Friedrich and Matt Halverson for reviewing.
 
--- Brian
+― Brian (@thorneynz)
